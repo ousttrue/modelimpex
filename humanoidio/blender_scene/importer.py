@@ -3,14 +3,12 @@ from logging import getLogger
 logger = getLogger(__name__)
 
 import math
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Callable
 import bpy
 import mathutils
-import bmesh
 from .. import gltf
 from .mesh import create_mesh
 from .armature import connect_bones
-from .util import disposable_mode
 
 
 def convert_obj(src: gltf.Coordinate, dst: gltf.Coordinate, bl_obj: bpy.types.Object):
@@ -25,14 +23,16 @@ def convert_obj(src: gltf.Coordinate, dst: gltf.Coordinate, bl_obj: bpy.types.Ob
         raise NotImplementedError()
 
 
-def bl_traverse(bl_obj: bpy.types.Object, pred):
+def bl_traverse(bl_obj: bpy.types.Object, pred: Callable[[bpy.types.Object], None]):
     pred(bl_obj)
 
     for child in bl_obj.children:
         bl_traverse(child, pred)
 
 
-def set_bone_weight(bl_object, vert_idx, bone_name, weight_val):
+def set_bone_weight(
+    bl_object: bpy.types.Object, vert_idx: int, bone_name: str, weight_val: float
+):
     if weight_val != 0.0:
         # It can be a problem to assign weights of 0
         # for bone index 0, if there is always 4 indices in joint_ tuple
@@ -41,11 +41,11 @@ def set_bone_weight(bl_object, vert_idx, bone_name, weight_val):
                 group = bl_object.vertex_groups[bone_name]
             except KeyError:
                 group = bl_object.vertex_groups.new(name=bone_name)
-            group.add([vert_idx], weight_val, "ADD")
+            group.add((vert_idx,), weight_val, "ADD")
 
 
 class Importer:
-    def __init__(self, collection, conversion: gltf.Conversion):
+    def __init__(self, collection: bpy.types.Collection, conversion: gltf.Conversion):
         self.collection = collection
         self.conversion = conversion
         self.obj_map: Dict[gltf.Node, bpy.types.Object] = {}
@@ -97,7 +97,7 @@ class Importer:
         return bl_obj
 
     def _create_tree(
-        self, node: gltf.Node, parent: Optional[gltf.Node] = None, level=0
+        self, node: gltf.Node, parent: Optional[gltf.Node] = None, level: int = 0
     ):
         bl_obj = self._create_object(node)
         for child in node.children:
@@ -248,7 +248,7 @@ class Importer:
         modifier = bl_object.modifiers.new(name="Armature", type="ARMATURE")
         modifier.object = self.skin_map.get(skin)
 
-    def _apply_conversion(self, roots):
+    def _apply_conversion(self, roots: List[bpy.types.Object]):
         empty = bpy.data.objects.new("empty", None)
         self.collection.objects.link(empty)
         for bl_obj in roots:

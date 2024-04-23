@@ -1,4 +1,3 @@
-from typing import Tuple
 import pathlib
 from . import pmx_loader
 
