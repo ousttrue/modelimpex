@@ -3,3 +3,5 @@ __pycache__
 *.blend*
 /export.glb
 /export_report.json
+
+typings/
