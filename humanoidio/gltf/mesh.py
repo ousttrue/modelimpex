@@ -11,17 +11,17 @@ class VertexBuffer:
         self.JOINTS_0: Optional[Generator[Any, None, None]] = None
         self.WEIGHTS_0: Optional[Generator[Any, None, None]] = None
 
-    def set_attribute(self, key: str, value):
-        if key == 'POSITION':
-            self.POSITION = value
-        elif key == 'NORMAL':
-            self.NORMAL = value
-        elif key == 'TEXCOORD_0':
-            self.TEXCOORD_0 = value
-        elif key == 'JOINTS_0':
-            self.JOINTS_0 = value
-        elif key == 'WEIGHTS_0':
-            self.WEIGHTS_0 = value
+    def set_attribute(self, key: str, value: Generator[Any, None, None]):
+        if key == "POSITION":
+            self.POSITION = value # type: ignore
+        elif key == "NORMAL":
+            self.NORMAL = value # type: ignore
+        elif key == "TEXCOORD_0":
+            self.TEXCOORD_0 = value # type: ignore
+        elif key == "JOINTS_0":
+            self.JOINTS_0 = value # type: ignore
+        elif key == "WEIGHTS_0":
+            self.WEIGHTS_0 = value # type: ignore
         else:
             raise NotImplementedError()
 
@@ -96,7 +96,7 @@ class ExportMesh:
             r = (r.x, r.y, r.z)
             self.normal_splitted = True
 
-    def split(self) -> 'ExportMesh':
+    def split(self) -> "ExportMesh":
         vertices = []
         vertex_map = {}
         indices = []

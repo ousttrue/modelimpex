@@ -2,4 +2,5 @@
 
 glTF model importer/exporter
 
-* [実装メモ](https://ousttrue.github.io/humanoidio/)
+## Blender-4.1 向けに作りなおし
+

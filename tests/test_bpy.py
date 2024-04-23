@@ -10,13 +10,15 @@ import unittest
 from logging import basicConfig, DEBUG
 
 HERE = pathlib.Path(__file__).absolute().parent
+# https://github.com/KhronosGroup/glTF-Sample-Assets
 GLTF_SAMPLE_KEY = 'GLTF_SAMPLE_MODELS'
-GLTF_SAMPLE_DIR = pathlib.Path(os.environ[GLTF_SAMPLE_KEY]) / '2.0'
+GLTF_SAMPLE_DIR = pathlib.Path(os.environ[GLTF_SAMPLE_KEY]) / 'Models'
 GLTF_PATH = GLTF_SAMPLE_DIR / 'BoxTextured/glTF-Binary/BoxTextured.glb'
+# https://github.com/madjin/vrm-samples
 VRM_SAMPLE_KEY = 'VRM_SAMPLES'
 VRM_SAMPLE_DIR = pathlib.Path(os.environ[VRM_SAMPLE_KEY])
 VRM_PATH = VRM_SAMPLE_DIR / 'vroid/Darkness_Shibu.vrm'
-VRM1_PATH = VRM_SAMPLE_DIR / 'Alicia_solid_A.vrm'
+VRM1_PATH = VRM_SAMPLE_DIR / 'Seed-san/vrm/Seed-san.vrm'
 
 basicConfig(
     level=DEBUG,
@@ -73,6 +75,7 @@ class TestBpy(unittest.TestCase):
         # clear scene
         clear()
 
+        self.assertTrue(VRM1_PATH.exists())
         bpy.ops.humanoidio.importer(filepath=str(VRM1_PATH))  # type: ignore
 
         # humanoidio.scene.load(path)

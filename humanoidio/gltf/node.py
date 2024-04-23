@@ -1,10 +1,10 @@
-from typing import List, Optional, Tuple, Union, NamedTuple
+from typing import List, Optional, Tuple, Union, NamedTuple, Iterator
 from .mesh import Mesh, ExportMesh
 from .humanoid import HumanoidBones
 
 
 class RotationConstraint(NamedTuple):
-    target: 'Node'
+    target: "Node"
     weight: float
 
 
@@ -26,11 +26,11 @@ class Node:
         self.humanoid_bone: Optional[HumanoidBones] = None
         self.constraint: Union[RotationConstraint, None] = None
 
-    def add_child(self, child: 'Node'):
+    def add_child(self, child: "Node"):
         child.parent = self
         self.children.append(child)
 
-    def traverse(self):
+    def traverse(self) -> Iterator["Node"]:
         yield self
         for child in self.children:
             for x in child.traverse():
