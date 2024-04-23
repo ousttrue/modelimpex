@@ -5,6 +5,16 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "rnastubgen",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/rnastubgen.py",
+            "args": [
+                "typings"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
             "name": "import",
             "type": "debugpy",
             "request": "launch",
