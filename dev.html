@@ -1,23 +1,24 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="ja" >
+<html class="writer-html5" lang="ja" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>開発環境 &mdash; Blender-2.93 python memo  ドキュメント</title>
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/sphinx_highlight.js"></script>
-        <script src="_static/translations.js"></script>
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=c033477b"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="_static/translations.js?v=4dbe4bdc"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="索引" href="genindex.html" />
     <link rel="search" title="検索" href="search.html" />
@@ -30,11 +31,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Blender-2.93 python memo
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Blender-2.93 python memo
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -69,8 +74,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>開発環境</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">開発環境</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/dev.md.txt" rel="nofollow"> View page source</a>
       </li>
@@ -81,20 +86,20 @@
            <div itemprop="articleBody">
              
   <section id="id1">
-<h1>開発環境<a class="headerlink" href="#id1" title="この見出しへのパーマリンク"></a></h1>
+<h1>開発環境<a class="headerlink" href="#id1" title="Link to this heading"></a></h1>
 <ul class="simple">
 <li><p>bpy モジュールのビルド</p></li>
 <li><p>bpy モジュールの型アノテーションでインテリセンスを動かす</p></li>
 </ul>
 <section id="bpy-module">
-<h2>bpy module<a class="headerlink" href="#bpy-module" title="この見出しへのパーマリンク"></a></h2>
+<h2>bpy module<a class="headerlink" href="#bpy-module" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="reference external" href="https://wiki.blender.org/wiki/Building_Blender/Other/BlenderAsPyModule">https://wiki.blender.org/wiki/Building_Blender/Other/BlenderAsPyModule</a></p></li>
 <li><p><a class="reference external" href="https://github.com/ousttrue/bpy_module">https://github.com/ousttrue/bpy_module</a></p></li>
 </ul>
 </section>
 <section id="build">
-<h2>build<a class="headerlink" href="#build" title="この見出しへのパーマリンク"></a></h2>
+<h2>build<a class="headerlink" href="#build" title="Link to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>        <span class="s2">&quot;-DWITH_FFTW3=OFF&quot;</span><span class="p">,</span>
         <span class="s2">&quot;-DWITH_PUGIXML=OFF&quot;</span><span class="p">,</span>
         <span class="s2">&quot;-DWITH_BULLET=OFF&quot;</span><span class="p">,</span>
