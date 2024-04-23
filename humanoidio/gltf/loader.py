@@ -11,6 +11,7 @@ from .accessor_util import GltfAccessor
 from .coordinate import Coordinate, Conversion
 from .node import Node, Skin
 from .humanoid import HumanoidBones
+from . import sukonbu_gltf
 
 
 class Vrm0:
@@ -30,7 +31,7 @@ class Loader:
         self.roots: List[Node] = []
         self.vrm: Union[Vrm0, Vrm1, None] = None
 
-    def _load_mesh(self, data: GltfAccessor, i: int, m):
+    def _load_mesh(self, data: GltfAccessor, i: int, m: sukonbu_gltf.Mesh):
         mesh = Mesh(m.get("name", f"mesh{i}"))
 
         index_offset = 0
