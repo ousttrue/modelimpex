@@ -154,14 +154,15 @@ class Importer:
                 humaniod_map[k.humanoid_bone] = k
 
         # set bone group
-        with disposable_mode(bl_obj, 'POSE'):
-            bone_group = bl_obj.pose.bone_groups.new(name='humanoid')
-            bone_group.color_set = 'THEME01'
-            for node in humaniod_map.values():
-                b = bl_obj.pose.bones[node.name]
-                b.bone_group = bone_group
-                # property
-                # b.pyimpex_humanoid_bone = node.humanoid_bone.name
+        # TODO:
+        # with disposable_mode(bl_obj, 'POSE'):
+        #     bone_group = bl_obj.pose.bone_groups.new(name='humanoid')
+        #     bone_group.color_set = 'THEME01'
+        #     for node in humaniod_map.values():
+        #         b = bl_obj.pose.bones[node.name]
+        #         b.bone_group = bone_group
+        #         # property
+        #         # b.pyimpex_humanoid_bone = node.humanoid_bone.name
 
         for skin in skins:
             self.skin_map[skin] = bl_obj
