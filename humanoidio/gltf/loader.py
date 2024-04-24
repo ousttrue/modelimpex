@@ -53,7 +53,7 @@ class Loader:
 
         return mesh
 
-    def _load_node(self, i: int, n):
+    def _load_node(self, i: int, n: gltf_json_type.Node):
         name = n.get("name", f"node_{i}")
         node = Node(name)
 

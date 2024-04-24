@@ -1,7 +1,8 @@
 from contextlib import contextmanager
 import bpy
 
-MODE_MAP = {
+
+MODE_MAP: dict[str, str] = {
     "OBJECT": "OBJECT",
     "EDIT": "EDIT",
     "EDIT_MESH": "EDIT",

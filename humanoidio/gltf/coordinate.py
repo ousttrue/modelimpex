@@ -1,4 +1,4 @@
-from typing import NamedTuple, Iterable, Any, Generator
+from typing import NamedTuple, Iterable, Iterator, Callable
 from enum import IntEnum, auto
 
 
@@ -35,7 +35,9 @@ class Coordinate(IntEnum):
     UNITY = LH_XYZ_right_up_forward
 
 
-def yup2zup_turn(iterable) -> Generator[Any, None, None]:
+def yup2zup_turn(
+    iterable: Iterable[float],
+) -> Callable[[], Iterator[tuple[float, float, float]]]:
     def g():
         it = iter(iterable)
         while True:
@@ -50,7 +52,9 @@ def yup2zup_turn(iterable) -> Generator[Any, None, None]:
     return g
 
 
-def yup2zup(iterable) -> Generator[Any, None, None]:
+def yup2zup(
+    iterable: Iterable[float],
+) -> Callable[[], Iterator[tuple[float, float, float]]]:
     def g():
         it = iter(iterable)
         while True:
@@ -69,7 +73,9 @@ class Conversion(NamedTuple):
     src: Coordinate
     dst: Coordinate
 
-    def generator(self, span: Iterable[Any]) -> Generator[Any, None, None]:
+    def generator(
+        self, span: Iterable[float]
+    ) -> Callable[[], Iterator[tuple[float, float, float]]]:
         if self.dst == Coordinate.BLENDER:
             # [blender]
             # Z  Y

@@ -86,7 +86,7 @@ def get_span(data: bytes | bytearray, ct: ComponentType) -> Iterable[Any]:
         raise ValueError(f"unknown component type: {ct}")
 
 
-CT_SIZE_MAP = {
+CT_SIZE_MAP: dict[ComponentType, int] = {
     ComponentType.Int8: 1,
     ComponentType.UInt8: 1,
     ComponentType.Int16: 2,
@@ -95,7 +95,7 @@ CT_SIZE_MAP = {
     ComponentType.Float: 4,
 }
 
-TYPE_SIZE_MAP = {
+TYPE_SIZE_MAP: dict[str, int] = {
     "SCALAR": 1,
     "VEC2": 2,
     "VEC3": 3,
@@ -106,14 +106,14 @@ TYPE_SIZE_MAP = {
 }
 
 
-def get_size_count(accessor: gltf_json_type.Accessor):
+def get_size_count(accessor: gltf_json_type.Accessor) -> tuple[int, int]:
     ct = accessor["componentType"]
     t = accessor["type"]
-    return (CT_SIZE_MAP[ComponentType(ct)], TYPE_SIZE_MAP[t])
+    return (CT_SIZE_MAP[ComponentType(ct)], TYPE_SIZE_MAP[t])  # type: ignore
 
 
 def get_type_count(
-    values: memoryview | ctypes.Array[Any] | array.array,
+    values: memoryview | ctypes.Array[Any] | array.array,  # type: ignore
 ) -> tuple[ComponentType, str]:
     if isinstance(values, memoryview):
         raise NotImplementedError()
@@ -192,7 +192,7 @@ class GltfAccessor:
             case _:
                 raise Exception("")
 
-    def push_bytes(self, data: bytes | memoryview):
+    def push_bytes(self, data: bytes | memoryview) -> int:
         if self._write_buffer == None:
             raise Exception("not writable")
         bufferViews: list[gltf_json_type.BufferView] = self.gltf.get("bufferViews", [])
@@ -212,7 +212,7 @@ class GltfAccessor:
         self.gltf["accessors"] = accessors
         accessor_index = len(accessors)
         t, c = get_type_count(values)
-        accessor: gltf_json_type.Accessor = {
+        accessor: gltf_json_type.Accessor = {  # type: ignore
             "bufferView": self.push_bytes(memoryview(values).cast("B")),
             "type": c,
             "componentType": t.value,

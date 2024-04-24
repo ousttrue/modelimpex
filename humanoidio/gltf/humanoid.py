@@ -74,12 +74,12 @@ class HumanoidBones(Enum):
 
     upperChest = auto()
 
-    @classmethod
-    def from_name(cls, name):
+    @staticmethod
+    def from_name(name: str) -> "HumanoidBones":
         for e in HumanoidBones:
             if e.name == name:
                 return e
-        raise ValueError(f'{name} not found')
+        raise ValueError(f"{name} not found")
 
 
 SPINE = [
