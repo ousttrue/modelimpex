@@ -13,6 +13,14 @@ import pathlib
 
 LOGGER = logging.getLogger(__name__)
 
+INCLUDE_MODULES = [
+    "bpy.types",
+    "cycles",
+    "cycles.properties",
+    "bl_operators.wm",
+    "bl_operators.node",
+]
+
 
 class StubGenerator:
     def __init__(self, output: pathlib.Path) -> None:
@@ -34,18 +42,27 @@ from . import types
 """
             )
 
+        names: List[str] = []
+        for _, name in self.structs.keys():
+            for d in self._resolve_dependency(name):
+                names.append(d)
+
         mod_map: dict[str, List[str]] = {}
-        for d in self._resolve_dependency("Mesh"):
-            s = self.structs[("", d)]
+        for name in names:
+            s = self.structs[("", name)]
             mod = mod_map.get(s.module_name)
             if not mod:
                 mod = []
                 mod_map[s.module_name] = mod
-            mod.append(d)
+            mod.append(name)
 
         # print(mod_map)
         for k, v in mod_map.items():
-            self._create_module(k, v)
+            if k in INCLUDE_MODULES:
+                LOGGER.info(f"create: {k}")
+                self._create_module(k, v)
+            else:
+                LOGGER.warning(f"skip: {k}")
 
     def _resolve_dependency(self, name: str) -> Iterator[str]:
         if name in self.resolved:
@@ -93,7 +110,14 @@ from . import types
                 return f"List[{v.fixed_type.identifier}]"
 
             case _:
-                return v.type
+                match v.subtype:
+                    case "EULER":
+                        return "tuple[float, float, float]"
+
+                    case _:
+                        if v.identifier == "rotation":
+                            pass
+                        return v.type
 
     def _create_struct(self, f: io.TextIOBase, name: str):
         s = self.structs[("", name)]
@@ -104,10 +128,10 @@ class {s.identifier}({s.base.identifier if s.base else ""}):
     ...
 """
         )
-        for i, v in enumerate(s.properties):
-            if i == 0:
-                for d in dir(v):
-                    print(d)
+        for _, v in enumerate(s.properties):
+            # if i == 0:
+            #     for d in dir(v):
+            #         print(d)
             f.write(f"    {v.identifier}: {self._type_str(v)}\n")
 
     def _create_module(self, k: str, v: List[str]):

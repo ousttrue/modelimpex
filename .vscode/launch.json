@@ -5,16 +5,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "rnastubgen",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/rnastubgen.py",
-            "args": [
-                "typings"
-            ],
-            "console": "integratedTerminal"
-        },
-        {
             "name": "import",
             "type": "debugpy",
             "request": "launch",
@@ -34,6 +24,18 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             },
+            "console": "integratedTerminal"
+        },
+        // typings
+        {
+            "name": "rnastubgen",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/scripts/rnastubgen.py",
+            "args": [
+                "typings"
+            ],
             "console": "integratedTerminal"
         },
     ]
