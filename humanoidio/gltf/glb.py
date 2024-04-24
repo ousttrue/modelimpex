@@ -1,6 +1,6 @@
 import json
 import io
-import humanoidio.gltf.gltf_json_type as gltf_json_type
+from . import gltf_json_type
 
 
 GLB_MAGIC = int.to_bytes(0x46546C67, length=4, byteorder="little")

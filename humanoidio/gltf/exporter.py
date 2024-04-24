@@ -1,12 +1,12 @@
 from typing import NamedTuple, Iterator, MutableSequence
 from enum import Enum, auto
 import ctypes
+from . import gltf_json_type
+from . import glb
 from . import accessor_util
 from .node import Node
 from .mesh import ExportMesh
-from . import glb
 from .types import Float3, Float4
-import humanoidio.gltf.gltf_json_type as gltf_json_type
 
 
 GltfJson = dict[str, "GltfJson"] | list["GltfJson"] | bool | int | float | str
