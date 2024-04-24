@@ -1,14 +1,15 @@
-from typing import Any, NamedTuple, Iterator
+from typing import NamedTuple, Iterator, MutableSequence
+from enum import Enum, auto
+import ctypes
 from . import accessor_util
 from .node import Node
 from .mesh import ExportMesh
 from . import glb
-from enum import Enum, auto
-from .types import Float3
+from .types import Float3, Float4
 import humanoidio.gltf.gltf_json_type as gltf_json_type
 
 
-GltfJson = dict[str, "GltfJson"] | list["GltfJson"]
+GltfJson = dict[str, "GltfJson"] | list["GltfJson"] | bool | int | float | str
 
 
 def enum_extensions_unique(
@@ -21,10 +22,10 @@ def enum_extensions_unique(
         case dict():
             for k, v in gltf.items():
                 if k == "extensions":
-                    for kk, vv in v.items(): # type: ignore
+                    for kk, vv in v.items():  # type: ignore
                         if kk not in used:
                             yield kk
-                            used.add(kk) #type: ignore
+                            used.add(kk)  # type: ignore
                             break
                 else:
                     for x in enum_extensions_unique(v, used):
@@ -33,6 +34,9 @@ def enum_extensions_unique(
             for v in gltf:
                 for x in enum_extensions_unique(v, used):
                     yield x
+
+        case _:
+            pass
 
 
 class AnimationChannelTargetPath(Enum):
@@ -46,8 +50,8 @@ class Animation(NamedTuple):
     action_name: str
     node: int
     target_path: AnimationChannelTargetPath
-    times: list[float]
-    values: list[Any]
+    times: MutableSequence[float]
+    values: ctypes.Array[Float4]
 
 
 class PostionMinMax:
@@ -102,8 +106,9 @@ class GltfWriter:
     def push_mesh(self, mesh: ExportMesh):
         if mesh.normal_splitted:
             mesh = mesh.split()
+
         gltf_mesh: gltf_json_type.Mesh = {"primitives": []}
-        primitive: dict[str, Any] = {"attributes": {}}
+        primitive: gltf_json_type.MeshPrimitive = {"attributes": {}}
         primitive["attributes"]["POSITION"] = self.accessor.push_array(
             mesh.POSITION, PostionMinMax
         )
@@ -111,19 +116,23 @@ class GltfWriter:
         primitive["indices"] = self.accessor.push_array(mesh.indices)
         gltf_mesh["primitives"].append(primitive)
 
-        mesh_index = len(self.gltf["meshes"])
-        self.gltf["meshes"].append(gltf_mesh)
+        meshes = self.gltf.get("meshes", [])
+        self.gltf["meshes"] = meshes
+        mesh_index = len(meshes)
+        meshes.append(gltf_mesh)
 
         return mesh_index
 
     def _export_node(self, node: Node):
-        gltf_node: Dict[str, Any] = {"name": node.name}
-        node_index = len(self.gltf["nodes"])
-        self.gltf["nodes"].append(gltf_node)
+        gltf_node: gltf_json_type.Node = {"name": node.name}
+        nodes = self.gltf.get("nodes", [])
+        self.gltf["nodes"] = nodes
+        node_index = len(nodes)
+        nodes.append(gltf_node)
 
         # TODO: TRS
         if node.translation != (0, 0, 0):
-            gltf_node["translation"] = node.translation
+            gltf_node["translation"] = node.translation  # type: ignore
 
         # mesh
         if isinstance(node.mesh, ExportMesh):
@@ -152,12 +161,14 @@ class GltfWriter:
 
     def push_scene(self, nodes: list[Node]):
         self.nodes = nodes
-        scene = {"nodes": []}
+        scene: gltf_json_type.Scene = {"nodes": []}
         for node in nodes:
             node_index = self._export_node(node)
             scene["nodes"].append(node_index)
 
-        self.gltf["scenes"].append(scene)
+        scenes = self.gltf.get("scenes", [])
+        self.gltf["scenes"] = scenes
+        scenes.append(scene)
 
     def push_animation(self, animation: Animation, fps: float):
         if "animations" not in self.gltf:
@@ -170,7 +181,7 @@ class GltfWriter:
         time_accessor = self.accessor.push_array(animation.times, FloatMinMax)
         values_accessor = self.accessor.push_array(animation.values)
 
-        gltf_animation: gltf_json_type.Animation = {
+        gltf_animation: gltf_json_type.Animation = {  # type: ignore
             "name": animation.action_name,
             "samplers": [
                 {
@@ -191,11 +202,11 @@ class GltfWriter:
         }
         self.gltf["animations"].append(gltf_animation)
 
-    def to_gltf(self)->tuple[gltf_json_type.glTF, bytes]:
+    def to_gltf(self) -> tuple[gltf_json_type.glTF, bytes]:
         self.gltf["buffers"] = [{"byteLength": len(self.accessor.bin)}]
 
         # update extensions used
-        self.gltf["extensionsUsed"] = [x for x in enum_extensions_unique(self.gltf)]
+        self.gltf["extensionsUsed"] = [x for x in enum_extensions_unique(self.gltf)]  # type: ignore
 
         return self.gltf, bytes(self.accessor.bin)
 

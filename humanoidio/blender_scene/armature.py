@@ -1,5 +1,5 @@
 import bpy
-import mathutils
+import mathutils  # type: ignore
 from typing import Dict, Optional
 from .. import gltf
 
@@ -27,11 +27,11 @@ EXCLUDE_HUMANOID_CHILDREN = [
     gltf.humanoid.HumanoidBones.rightLittleProximal,
 ]
 
-EXCLUDE_OTHERS = ['J_Adj_L_FaceEyeSet', 'J_Adj_R_FaceEyeSet']
+EXCLUDE_OTHERS = ["J_Adj_L_FaceEyeSet", "J_Adj_R_FaceEyeSet"]
 
 
 class BoneConnector:
-    '''
+    """
     ボーンを適当に接続したり、しない場合でも tail を設定してやる
 
     tail を決める
@@ -39,22 +39,23 @@ class BoneConnector:
     * child が 0。親からまっすぐに伸ばす
     * child が ひとつ。それ
     * child が 2つ以上。どれか選べ(同じざひょうのときは少しずらす。head と tail が同じボーンは消滅するので)
-    '''
+    """
+
     def __init__(self, bones: Dict[gltf.Node, bpy.types.EditBone]):
         self.bones = bones
 
     def extend_tail(self, node: gltf.Node):
-        '''
+        """
         親ボーンと同じ方向にtailを延ばす
-        '''
+        """
         bl_bone = self.bones[node]
         if node.parent:
             try:
                 bl_parent = self.bones[node.parent]
-                tail_offset = (bl_bone.head - bl_parent.head)  # type: ignore
+                tail_offset = bl_bone.head - bl_parent.head  # type: ignore
                 bl_bone.tail = bl_bone.head + tail_offset
             except KeyError:
-                print(f'{node}.parent not found')
+                print(f"{node}.parent not found")
 
     def connect_tail(self, node: gltf.Node, tail: gltf.Node):
         bl_bone = self.bones[node]
@@ -63,8 +64,7 @@ class BoneConnector:
         bl_tail.parent = bl_bone
         bl_tail.use_connect = True
 
-    def traverse(self, node: gltf.Node, parent: Optional[gltf.Node],
-                 is_connect: bool):
+    def traverse(self, node: gltf.Node, parent: Optional[gltf.Node], is_connect: bool):
         # connect
         if parent:
             # print(f'connect {parent} => {node}')
@@ -79,13 +79,12 @@ class BoneConnector:
                 if bl_parent.head != bl_bone.head:
                     bl_parent.tail = bl_bone.head
                 else:
-                    bl_parent.tail = bl_bone.head + mathutils.Vector(
-                        (0, 0, 1e-4))
+                    bl_parent.tail = bl_bone.head + mathutils.Vector((0, 0, 1e-4))
 
-                if parent and (parent.humanoid_bone
-                               == gltf.humanoid.HumanoidBones.leftShoulder
-                               or parent.humanoid_bone
-                               == gltf.humanoid.HumanoidBones.rightShoulder):
+                if parent and (
+                    parent.humanoid_bone == gltf.humanoid.HumanoidBones.leftShoulder
+                    or parent.humanoid_bone == gltf.humanoid.HumanoidBones.rightShoulder
+                ):
                     # https://blenderartists.org/t/rigify-error-generation-has-thrown-an-exception-but-theres-no-exception-message/1228840
                     pass
                 else:

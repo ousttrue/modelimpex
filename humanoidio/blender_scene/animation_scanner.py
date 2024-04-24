@@ -1,4 +1,4 @@
-from typing import List, Iterator, Tuple, NamedTuple
+from typing import List, Iterator, Tuple, NamedTuple, MutableSequence
 import bpy, mathutils  # type: ignore
 from .. import gltf
 from .types import bl_obj_gltf_node
@@ -13,13 +13,13 @@ def euler2quat(x: float, y: float, z: float) -> mathutils.Quaternion:
 
 
 class Curve(NamedTuple):
-    times: array.array
-    values: array.array
+    times: MutableSequence[float]
+    values: MutableSequence[float]
 
 
 def get_curve(
     data_path: str, curves: List[bpy.types.FCurve]
-) -> tuple[array.array, ctypes.Array[gltf.types.Float4]]:
+) -> tuple[MutableSequence[float], ctypes.Array[gltf.types.Float4]]:
     x_curve = None
     y_curve = None
     z_curve = None
@@ -62,7 +62,7 @@ def get_curve(
 def get_curves(
     bl_action: bpy.types.Action,
 ) -> Iterator[Tuple[str, List[bpy.types.FCurve]]]:
-    curves = []
+    curves: List[bpy.types.FCurve] = []
     for fcurve in bl_action.fcurves:
         if curves and curves[0].data_path != fcurve.data_path:
             yield (curves[0].data_path, curves)
