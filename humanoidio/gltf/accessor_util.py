@@ -1,12 +1,13 @@
 import ctypes
 import array
 from enum import IntEnum
-from typing import Iterable, Any, Dict, Generator, Union, Optional
-from .types import Float3
-from .sukonbu_gltf import glTF
+from typing import Iterable, Iterator, Any, TypeVar, Callable
+from . import gltf_json_type
+
+T = TypeVar("T")
 
 
-def enumerate_1(iterable) -> Generator[Any, None, None]:
+def enumerate_1(iterable: Iterable[T]) -> Callable[[], Iterator[T]]:
     def g():
         for x in iterable:
             yield x
@@ -14,7 +15,7 @@ def enumerate_1(iterable) -> Generator[Any, None, None]:
     return g
 
 
-def enumerate_2(iterable) -> Generator[Any, None, None]:
+def enumerate_2(iterable: Iterable[T]) -> Callable[[], Iterator[tuple[T, T]]]:
     def g():
         it = iter(iterable)
         while True:
@@ -28,7 +29,7 @@ def enumerate_2(iterable) -> Generator[Any, None, None]:
     return g
 
 
-def enumerate_3(iterable) -> Generator[Any, None, None]:
+def enumerate_3(iterable: Iterable[T]) -> Callable[[], Iterator[tuple[T, T, T]]]:
     def g():
         it = iter(iterable)
         while True:
@@ -43,7 +44,7 @@ def enumerate_3(iterable) -> Generator[Any, None, None]:
     return g
 
 
-def enumerate_4(iterable) -> Generator[Any, None, None]:
+def enumerate_4(iterable: Iterable[T]) -> Callable[[], Iterator[tuple[T, T, T, T]]]:
     def g():
         it = iter(iterable)
         while True:
@@ -68,7 +69,7 @@ class ComponentType(IntEnum):
     Float = 5126
 
 
-def get_span(data: Union[bytes, bytearray], ct: ComponentType) -> Iterable[Any]:
+def get_span(data: bytes | bytearray, ct: ComponentType) -> Iterable[Any]:
     if ct == ComponentType.Int8:
         return memoryview(data).cast("b")
     elif ct == ComponentType.UInt8:
@@ -105,13 +106,15 @@ TYPE_SIZE_MAP = {
 }
 
 
-def get_size_count(accessor):
+def get_size_count(accessor: gltf_json_type.Accessor):
     ct = accessor["componentType"]
     t = accessor["type"]
     return (CT_SIZE_MAP[ComponentType(ct)], TYPE_SIZE_MAP[t])
 
 
-def get_type_count(values: Union[memoryview, ctypes.Array, array.array]):
+def get_type_count(
+    values: memoryview | ctypes.Array[Any] | array.array,
+) -> tuple[ComponentType, str]:
     if isinstance(values, memoryview):
         raise NotImplementedError()
     elif isinstance(values, ctypes.Array):
@@ -125,24 +128,25 @@ def get_type_count(values: Union[memoryview, ctypes.Array, array.array]):
             return ComponentType.Float, "VEC4"
         else:
             raise NotImplementedError(f"{values._type_}")
-    elif isinstance(values, array.array):
+    else:  # isinstance(values, array.array):
         if values.typecode == "f":
             return ComponentType.Float, "SCALAR"
         else:
             raise NotImplementedError(f"array.array: {values.typecode}")
-    else:
-        raise NotImplementedError(f"{type(values)}")
 
 
 class GltfAccessor:
-    def __init__(self, gltf: glTF, bin: Union[bytes, bytearray]):
+    def __init__(self, gltf: gltf_json_type.glTF, bin: bytes | bytearray):
         self.gltf = gltf
         self.bin = bin
+        self._write_buffer = None
         if isinstance(bin, bytearray):
             # writeable
-            self.write_buffer = bin
+            self._write_buffer = bin
+        else:
+            raise RuntimeError()
 
-    def bufferview_bytes(self, index: int) -> Union[bytes, bytearray, None]:
+    def bufferview_bytes(self, index: int) -> bytes | bytearray | None:
         match self.gltf:
             case {"bufferViews": bufferViews}:
                 bufferView = bufferViews[index]
@@ -157,7 +161,7 @@ class GltfAccessor:
             case _:
                 pass
 
-    def accessor_generator(self, index: int) -> Generator[Any, None, None]:
+    def accessor_generator(self, index: int) -> Callable[[], Iterator[Any]]:
         match self.gltf:
             case {"accessors": accessors}:
                 accessor = accessors[index]
@@ -167,43 +171,48 @@ class GltfAccessor:
                 match accessor:
                     case {"bufferView": bufferView, "componentType": componentType}:
                         buffer = self.bufferview_bytes(bufferView)
-                        if buffer:
-                            data = buffer[
-                                offset : offset + element_size * element_count * count
-                            ]
-                            span = get_span(data, ComponentType(componentType))
-                            if element_count == 1:
-                                return enumerate_1(span)
-                            elif element_count == 2:
-                                return enumerate_2(span)
-                            elif element_count == 3:
-                                return enumerate_3(span)
-                            elif element_count == 4:
-                                return enumerate_4(span)
-                            else:
-                                raise NotImplementedError()
+                        if not buffer:
+                            raise Exception("")
+                        data = buffer[
+                            offset : offset + element_size * element_count * count
+                        ]
+                        span = get_span(data, ComponentType(componentType))
+                        if element_count == 1:
+                            return enumerate_1(span)
+                        elif element_count == 2:
+                            return enumerate_2(span)
+                        elif element_count == 3:
+                            return enumerate_3(span)
+                        elif element_count == 4:
+                            return enumerate_4(span)
+                        else:
+                            raise NotImplementedError()
                     case _:
                         raise Exception("")
             case _:
                 raise Exception("")
 
-    def push_bytes(self, data: bytes):
-        if not isinstance(self.write_buffer, bytearray):
+    def push_bytes(self, data: bytes | memoryview):
+        if self._write_buffer == None:
             raise Exception("not writable")
-        bufferView_index = len(self.gltf["bufferViews"])
-        bufferView = {
+        bufferViews: list[gltf_json_type.BufferView] = self.gltf.get("bufferViews", [])
+        self.gltf["bufferViews"] = bufferViews
+        bufferView_index = len(bufferViews)
+        bufferView: gltf_json_type.BufferView = {
             "buffer": 0,
             "byteOffset": len(self.bin),
             "byteLength": len(data),
         }
-        self.write_buffer.extend(data)
-        self.gltf["bufferViews"].append(bufferView)
+        self._write_buffer.extend(data)
+        bufferViews.append(bufferView)
         return bufferView_index
 
-    def push_array(self, values, min_max=None) -> int:
-        accessor_index = len(self.gltf["accessors"])
+    def push_array(self, values: Any, min_max: Any = None) -> int:
+        accessors: list[gltf_json_type.Accessor] = self.gltf.get("accessors", [])
+        self.gltf["accessors"] = accessors
+        accessor_index = len(accessors)
         t, c = get_type_count(values)
-        accessor = {
+        accessor: gltf_json_type.Accessor = {
             "bufferView": self.push_bytes(memoryview(values).cast("B")),
             "type": c,
             "componentType": t.value,
@@ -216,5 +225,5 @@ class GltfAccessor:
             accessor["min"] = c.min
             accessor["max"] = c.max
 
-        self.gltf["accessors"].append(accessor)
+        accessors.append(accessor)
         return accessor_index

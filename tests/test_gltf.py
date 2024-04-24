@@ -6,7 +6,7 @@ if KEY not in os.environ:
     sys.exit()
 import pathlib
 
-SAMPLE_DIR = pathlib.Path(os.environ[KEY]) / '2.0'
+SAMPLE_DIR = pathlib.Path(os.environ[KEY]) / 'Models'
 
 import unittest
 from typing import Optional, Iterable

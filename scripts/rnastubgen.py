@@ -110,14 +110,11 @@ from . import types
                 return f"List[{v.fixed_type.identifier}]"
 
             case _:
-                match v.subtype:
-                    case "EULER":
-                        return "tuple[float, float, float]"
-
-                    case _:
-                        if v.identifier == "rotation":
-                            pass
+                match v.array_length:
+                    case 0:
                         return v.type
+                    case _:
+                        return "tuple[" + ",".join([v.type] * v.array_length) + "]"
 
     def _create_struct(self, f: io.TextIOBase, name: str):
         s = self.structs[("", name)]

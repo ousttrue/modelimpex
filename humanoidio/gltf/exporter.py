@@ -1,33 +1,38 @@
-from typing import List, Dict, Any, NamedTuple
+from typing import Any, NamedTuple, Iterator
 from . import accessor_util
 from .node import Node
 from .mesh import ExportMesh
 from . import glb
 from enum import Enum, auto
-import collections
 from .types import Float3
+import humanoidio.gltf.gltf_json_type as gltf_json_type
 
 
-def enum_extensions_unique(gltf: Any, used=None):
+GltfJson = dict[str, "GltfJson"] | list["GltfJson"]
+
+
+def enum_extensions_unique(
+    gltf: GltfJson, used: set[str] | None = None
+) -> Iterator[str]:
     if not used:
         used = set()
-    if isinstance(gltf, dict):
-        for k, v in gltf.items():
-            if k == 'extensions':
-                for kk, vv in v.items():
-                    if kk not in used:
-                        yield kk
-                        used.add(kk)
-                        break
-            else:
+
+    match gltf:
+        case dict():
+            for k, v in gltf.items():
+                if k == "extensions":
+                    for kk, vv in v.items(): # type: ignore
+                        if kk not in used:
+                            yield kk
+                            used.add(kk) #type: ignore
+                            break
+                else:
+                    for x in enum_extensions_unique(v, used):
+                        yield x
+        case list():
+            for v in gltf:
                 for x in enum_extensions_unique(v, used):
                     yield x
-    elif isinstance(gltf, list) or isinstance(gltf, tuple):
-        for v in gltf:
-            for x in enum_extensions_unique(v, used):
-                yield x
-    else:
-        pass
 
 
 class AnimationChannelTargetPath(Enum):
@@ -41,14 +46,14 @@ class Animation(NamedTuple):
     action_name: str
     node: int
     target_path: AnimationChannelTargetPath
-    times: List[float]
-    values: List[Any]
+    times: list[float]
+    values: list[Any]
 
 
 class PostionMinMax:
     def __init__(self):
-        self.min = [float('inf'), float('inf'), float('inf')]
-        self.max = [-float('inf'), -float('inf'), -float('inf')]
+        self.min = [float("inf"), float("inf"), float("inf")]
+        self.max = [-float("inf"), -float("inf"), -float("inf")]
 
     def push(self, v: Float3):
         # min
@@ -69,8 +74,8 @@ class PostionMinMax:
 
 class FloatMinMax:
     def __init__(self):
-        self.min = [float('inf')]
-        self.max = [-float('inf')]
+        self.min = [float("inf")]
+        self.max = [-float("inf")]
 
     def push(self, v: float):
         if v < self.min[0]:
@@ -81,85 +86,82 @@ class FloatMinMax:
 
 class GltfWriter:
     def __init__(self):
-        self.gltf = {
-            'asset': {
-                'version': '2.0',
+        self.gltf: gltf_json_type.glTF = {
+            "asset": {
+                "version": "2.0",
             },
-            'buffers': [],
-            'bufferViews': [],
-            'accessors': [],
-            'meshes': [],
-            'nodes': [],
-            'scenes': [],
+            "buffers": [],
+            "bufferViews": [],
+            "accessors": [],
+            "meshes": [],
+            "nodes": [],
+            "scenes": [],
         }
         self.accessor = accessor_util.GltfAccessor(self.gltf, bytearray())
 
     def push_mesh(self, mesh: ExportMesh):
         if mesh.normal_splitted:
             mesh = mesh.split()
-        gltf_mesh = {'primitives': []}
-        primitive: Dict[str, Any] = {'attributes': {}}
-        primitive['attributes']['POSITION'] = self.accessor.push_array(
-            mesh.POSITION, PostionMinMax)
-        primitive['attributes']['NORMAL'] = self.accessor.push_array(
-            mesh.NORMAL)
-        primitive['indices'] = self.accessor.push_array(mesh.indices)
-        gltf_mesh['primitives'].append(primitive)
+        gltf_mesh: gltf_json_type.Mesh = {"primitives": []}
+        primitive: dict[str, Any] = {"attributes": {}}
+        primitive["attributes"]["POSITION"] = self.accessor.push_array(
+            mesh.POSITION, PostionMinMax
+        )
+        primitive["attributes"]["NORMAL"] = self.accessor.push_array(mesh.NORMAL)
+        primitive["indices"] = self.accessor.push_array(mesh.indices)
+        gltf_mesh["primitives"].append(primitive)
 
-        mesh_index = len(self.gltf['meshes'])
-        self.gltf['meshes'].append(gltf_mesh)
+        mesh_index = len(self.gltf["meshes"])
+        self.gltf["meshes"].append(gltf_mesh)
 
         return mesh_index
 
     def _export_node(self, node: Node):
-        gltf_node: Dict[str, Any] = {'name': node.name}
-        node_index = len(self.gltf['nodes'])
-        self.gltf['nodes'].append(gltf_node)
+        gltf_node: Dict[str, Any] = {"name": node.name}
+        node_index = len(self.gltf["nodes"])
+        self.gltf["nodes"].append(gltf_node)
 
         # TODO: TRS
         if node.translation != (0, 0, 0):
-            gltf_node['translation'] = node.translation
+            gltf_node["translation"] = node.translation
 
         # mesh
         if isinstance(node.mesh, ExportMesh):
             mesh_index = self.push_mesh(node.mesh)
-            gltf_node['mesh'] = mesh_index
+            gltf_node["mesh"] = mesh_index
 
         # children
         for child in node.children:
             child_node_index = self._export_node(child)
-            if 'children' not in gltf_node:
-                gltf_node['children'] = []
-            gltf_node['children'].append(child_node_index)
+            if "children" not in gltf_node:
+                gltf_node["children"] = []
+            gltf_node["children"].append(child_node_index)
 
         # constraint
         if node.constraint:
             src = self.nodes.index(node.constraint.target)
-            gltf_node['extensions'] = {
-                'VRMC_node_constraint': {
-                    'constraint': {
-                        'rotation': {
-                            'source': src,
-                            'weight': node.constraint.weight
-                        }
+            gltf_node["extensions"] = {
+                "VRMC_node_constraint": {
+                    "constraint": {
+                        "rotation": {"source": src, "weight": node.constraint.weight}
                     }
                 }
             }
 
         return node_index
 
-    def push_scene(self, nodes: List[Node]):
+    def push_scene(self, nodes: list[Node]):
         self.nodes = nodes
-        scene = {'nodes': []}
+        scene = {"nodes": []}
         for node in nodes:
             node_index = self._export_node(node)
-            scene['nodes'].append(node_index)
+            scene["nodes"].append(node_index)
 
-        self.gltf['scenes'].append(scene)
+        self.gltf["scenes"].append(scene)
 
     def push_animation(self, animation: Animation, fps: float):
-        if 'animations' not in self.gltf:
-            self.gltf['animations'] = []
+        if "animations" not in self.gltf:
+            self.gltf["animations"] = []
 
         inv = 1 / fps
         for i, _ in enumerate(animation.times):
@@ -168,31 +170,32 @@ class GltfWriter:
         time_accessor = self.accessor.push_array(animation.times, FloatMinMax)
         values_accessor = self.accessor.push_array(animation.values)
 
-        gltf_animation = {
-            "name":
-            animation.action_name,
-            "samplers": [{
-                "input": time_accessor,
-                "interpolation": "LINEAR",
-                "output": values_accessor
-            }],
-            "channels": [{
-                "sampler": 0,
-                "target": {
-                    "node": animation.node,
-                    "path": animation.target_path.name
+        gltf_animation: gltf_json_type.Animation = {
+            "name": animation.action_name,
+            "samplers": [
+                {
+                    "input": time_accessor,
+                    "interpolation": "LINEAR",
+                    "output": values_accessor,
                 }
-            }],
+            ],
+            "channels": [
+                {
+                    "sampler": 0,
+                    "target": {
+                        "node": animation.node,
+                        "path": animation.target_path.name,
+                    },
+                }
+            ],
         }
-        self.gltf['animations'].append(gltf_animation)
+        self.gltf["animations"].append(gltf_animation)
 
-    def to_gltf(self):
-        self.gltf['buffers'] = [{'byteLength': len(self.accessor.bin)}]
+    def to_gltf(self)->tuple[gltf_json_type.glTF, bytes]:
+        self.gltf["buffers"] = [{"byteLength": len(self.accessor.bin)}]
 
         # update extensions used
-        self.gltf['extensionsUsed'] = [
-            x for x in enum_extensions_unique(self.gltf)
-        ]
+        self.gltf["extensionsUsed"] = [x for x in enum_extensions_unique(self.gltf)]
 
         return self.gltf, bytes(self.accessor.bin)
 

@@ -1,11 +1,12 @@
-from typing import List, Iterable, Tuple, NamedTuple
-import bpy, mathutils
+from typing import List, Iterator, Tuple, NamedTuple
+import bpy, mathutils  # type: ignore
 from .. import gltf
 from .types import bl_obj_gltf_node
 import array
+import ctypes
 
 
-def euler2quat(x, y, z) -> mathutils.Quaternion:
+def euler2quat(x: float, y: float, z: float) -> mathutils.Quaternion:
     # return mathutils.Euler((x, y, z)).to_quaternion()
     # z-up to y-up
     return mathutils.Euler((x, y, z)).to_quaternion()
@@ -16,12 +17,14 @@ class Curve(NamedTuple):
     values: array.array
 
 
-def get_curve(data_path: str, curves):
+def get_curve(
+    data_path: str, curves: List[bpy.types.FCurve]
+) -> tuple[array.array, ctypes.Array[gltf.types.Float4]]:
     x_curve = None
     y_curve = None
     z_curve = None
     for curve in curves:
-        c = Curve(array.array('f'), array.array('f'))
+        c = Curve(array.array("f"), array.array("f"))
         if curve.array_index == 0:
             x_curve = c
         elif curve.array_index == 1:
@@ -36,10 +39,17 @@ def get_curve(data_path: str, curves):
             c.values.append(v)
 
     if data_path == "rotation_euler":
-        if x_curve and y_curve and z_curve and x_curve.times == y_curve.times and y_curve.times == z_curve.times:
+        if (
+            x_curve
+            and y_curve
+            and z_curve
+            and x_curve.times == y_curve.times
+            and y_curve.times == z_curve.times
+        ):
             values = (gltf.types.Float4 * len(x_curve.times))()
             for i, (x, y, z) in enumerate(
-                    zip(x_curve.values, y_curve.values, z_curve.values)):
+                zip(x_curve.values, y_curve.values, z_curve.values)
+            ):
                 q = euler2quat(x, y, z)
                 values[i] = (q.x, q.y, q.z, q.w)
             return x_curve.times, values
@@ -50,8 +60,8 @@ def get_curve(data_path: str, curves):
 
 
 def get_curves(
-    bl_action: bpy.types.Action
-) -> Iterable[Tuple[str, List[bpy.types.FCurve]]]:
+    bl_action: bpy.types.Action,
+) -> Iterator[Tuple[str, List[bpy.types.FCurve]]]:
     curves = []
     for fcurve in bl_action.fcurves:
         if curves and curves[0].data_path != fcurve.data_path:
@@ -80,8 +90,9 @@ class BlenderAnimationScanner:
         bl_action = bl_obj.animation_data.action
         for data_path, curves in get_curves(bl_action):
             times, values = get_curve(data_path, curves)
-            animation = gltf.Animation(bl_action.name, i,
-                                       DATA_PATH_MAP[data_path], times, values)
+            animation = gltf.Animation(
+                bl_action.name, i, DATA_PATH_MAP[data_path], times, values
+            )
             self.animations.append(animation)
 
     def scan(self, obj_node: List[bl_obj_gltf_node]) -> List[gltf.Animation]:
