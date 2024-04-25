@@ -33,6 +33,7 @@ humanoidio.register()
 
 def clear():
     # clear scene
+    import bpy.ops.object
     bpy.ops.object.select_all(action='SELECT')  # type: ignore
     bpy.ops.object.delete()
 

@@ -22,12 +22,18 @@ INCLUDE_MODULES = [
 ]
 
 
-class StubGenerator:
-    def __init__(self, output: pathlib.Path) -> None:
+class StructStubGenerator:
+    def __init__(
+        self,
+        output: pathlib.Path,
+        structs: dict[tuple[str, str], Any],
+        funcs: Any,
+        ops: dict[tuple[str, str], Any],
+        props: Any,
+    ) -> None:
         self.output = output
         self.dependencies = []
-        structs, funcs, ops, props = rna_info.BuildRNAInfo()  # type: ignore
-        self.structs: dict[tuple[str, str], Any] = structs
+        self.structs = structs
         self.resolved: set[str] = set()
 
     def generate(self):
@@ -146,6 +152,49 @@ from typing import List, Literal
                 self._create_struct(f, d)
 
 
+class OperatorStubGenerator:
+    def __init__(
+        self,
+        output: pathlib.Path,
+        structs: dict[tuple[str, str], Any],
+        funcs: Any,
+        ops: dict[tuple[str, str], Any],
+        props: Any,
+    ) -> None:
+        self.output = output
+        self.ops = ops
+
+    def generate(self):
+        mod_map: dict[str, List[str]] = {}
+        for _, name in self.ops.keys():
+            op = self.ops[("", name)]
+            mod = mod_map.get(op.module_name)
+            if not mod:
+                mod = []
+                mod_map[op.module_name] = mod
+            mod.append(name)
+
+        for k, v in mod_map.items():
+            pyi = self.output / f"bpy/ops/{k}.pyi"
+            pyi.parent.mkdir(exist_ok=True, parents=True)
+            with pyi.open("w", encoding="utf-8") as f:
+                f.write(
+                    """
+"""
+                )
+                for op_name in v:
+                    self._create_op(f, op_name)
+
+    def _create_op(self, f: io.TextIOBase, name: str):
+        op = self.ops[("", name)]
+        f.write(
+            f"""
+def {op.func_name}()->None:
+    ...
+"""
+        )
+
+
 def main():
     logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser(
@@ -155,8 +204,13 @@ def main():
     parser.add_argument("output", type=pathlib.Path)
     args = parser.parse_args()
 
-    g = StubGenerator(args.output)
-    g.generate()
+    structs, funcs, ops, props = rna_info.BuildRNAInfo()  # type: ignore
+
+    sg = StructStubGenerator(args.output, structs, funcs, ops, props)
+    sg.generate()
+
+    og = OperatorStubGenerator(args.output, structs, funcs, ops, props)
+    og.generate()
 
 
 if __name__ == "__main__":
