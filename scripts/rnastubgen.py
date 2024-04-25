@@ -27,9 +27,6 @@ class StructStubGenerator:
         self,
         output: pathlib.Path,
         structs: dict[tuple[str, str], Any],
-        funcs: Any,
-        ops: dict[tuple[str, str], Any],
-        props: Any,
     ) -> None:
         self.output = output
         self.dependencies = []
@@ -37,17 +34,6 @@ class StructStubGenerator:
         self.resolved: set[str] = set()
 
     def generate(self):
-        bpy = self.output / "bpy"
-        bpy_init = bpy / "__init__.pyi"
-        bpy_init.parent.mkdir(parents=True, exist_ok=True)
-        with bpy_init.open("w", encoding="utf-8") as f:
-            f.write(
-                """
-__all__ = ['types']
-from . import types
-"""
-            )
-
         names: List[str] = []
         for _, name in self.structs.keys():
             for d in self._resolve_dependency(name):
@@ -156,10 +142,7 @@ class OperatorStubGenerator:
     def __init__(
         self,
         output: pathlib.Path,
-        structs: dict[tuple[str, str], Any],
-        funcs: Any,
         ops: dict[tuple[str, str], Any],
-        props: Any,
     ) -> None:
         self.output = output
         self.ops = ops
@@ -174,8 +157,9 @@ class OperatorStubGenerator:
                 mod_map[op.module_name] = mod
             mod.append(name)
 
+        ops_dir = self.output / f"bpy/ops"
         for k, v in mod_map.items():
-            pyi = self.output / f"bpy/ops/{k}.pyi"
+            pyi = ops_dir / f"{k}.pyi"
             pyi.parent.mkdir(exist_ok=True, parents=True)
             with pyi.open("w", encoding="utf-8") as f:
                 f.write(
@@ -184,6 +168,18 @@ class OperatorStubGenerator:
                 )
                 for op_name in v:
                     self._create_op(f, op_name)
+
+        def quote(src: str) -> str:
+            return '"' + src + '"'
+
+        with (ops_dir / "__init__.py").open("w", encoding="utf-8") as f:
+            f.write(
+                f"""
+__all__ = [{','.join(quote(x) for x in mod_map.keys())}]
+"""
+            )
+            for x in mod_map.keys():
+                f.write(f"from . import {x}\n")
 
     def _create_op(self, f: io.TextIOBase, name: str):
         op = self.ops[("", name)]
@@ -206,11 +202,41 @@ def main():
 
     structs, funcs, ops, props = rna_info.BuildRNAInfo()  # type: ignore
 
-    sg = StructStubGenerator(args.output, structs, funcs, ops, props)
+    bpy_dir = args.output / "bpy"
+    bpy_init = bpy_dir / "__init__.pyi"
+    bpy_init.parent.mkdir(parents=True, exist_ok=True)
+    with bpy_init.open("w", encoding="utf-8") as f:
+        f.write(
+            """
+__all__ = [
+    'types',
+    'data',
+    'ops',
+    'context',
+    'props',
+]
+from . import data
+from . import context
+from . import types
+from . import props
+from . import ops # py
+"""
+        )
+
+    sg = StructStubGenerator(args.output, structs)  # type: ignore
     sg.generate()
 
-    og = OperatorStubGenerator(args.output, structs, funcs, ops, props)
+    og = OperatorStubGenerator(args.output, ops)  # type: ignore
     og.generate()
+
+    # for parent, name in props:
+    #     print(parent, name)
+    # bpy/data.py => bpy.types.BlendData
+    # print(type(bpy.data), bpy.data)
+    for d in dir(bpy):
+        a = getattr(bpy, d)
+        print(d, type(a), a)
+    # print(bpy.props)
 
 
 if __name__ == "__main__":
