@@ -1,9 +1,7 @@
-from logging import getLogger
-
-logger = getLogger(__name__)
-
 import bpy
 from bpy_extras.io_utils import ExportHelper
+from bpy.props import FloatVectorProperty, StringProperty
+
 
 from .. import blender_scene
 from .. import gltf
@@ -11,12 +9,17 @@ import pathlib
 
 
 class Exporter(bpy.types.Operator, ExportHelper):
-    bl_idname = 'humanoidio.exporter'
-    bl_label = 'humanoidio Exporter'
-    bl_options = {'PRESET'}
+    bl_idname = "humanoidio.exporter"
+    bl_label = "humanoidio Exporter"
+    bl_options = {"PRESET"}
+
+    # ExportHelper mixin class uses this
+    filename_ext = ".vrm"
+
+    filter_glob: StringProperty(default="*.glb;*.gltf;*.vrm", options={"HIDDEN"})
 
     def execute(self, context: bpy.types.Context):
-        logger.debug('#### start ####')
+        print("#### start ####")
 
         # scan scene
         bl_obj_list = bpy.context.selected_objects
@@ -35,10 +38,10 @@ class Exporter(bpy.types.Operator, ExportHelper):
         glb = writer.to_glb()
         path = pathlib.Path(self.filepath)
 
-        logger.debug(f'write {len(glb)} bytes to {path}')
+        print(f"write {len(glb)} bytes to {path}")
         path.write_bytes(glb)
 
-        return {'FINISHED'}
+        return {"FINISHED"}
 
 
 def menu(self, context):
