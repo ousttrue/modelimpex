@@ -18,25 +18,36 @@ class Importer(bpy.types.Operator, ImportHelper):
     def execute(self, context: bpy.types.Context):
         logger.debug("#### start ####")
         # read file
-        path = pathlib.Path(self.filepath).absolute()
+        path = pathlib.Path(self.filepath).absolute()  # type: ignore
         ext = path.suffix.lower()
-        if ext == ".pmx" or ext == ".pmd":
-            loader = mmd.load(path.read_bytes())
-            conversion = gltf.Conversion(
-                gltf.Coordinate.VRM1, gltf.Coordinate.BLENDER_ROTATE
-            )
+        match ext:
+            case ".pmx":
+                loader = mmd.load_pmx(path.read_bytes())
+                conversion = gltf.Conversion(
+                    gltf.Coordinate.VRM1, gltf.Coordinate.BLENDER_ROTATE
+                )
 
-        else:
-            loader, conversion = gltf.load(path, gltf.Coordinate.BLENDER_ROTATE)
+            case ".pmd":
+                loader = mmd.load_pmd(path.read_bytes())
+                conversion = gltf.Conversion(
+                    gltf.Coordinate.VRM1, gltf.Coordinate.BLENDER_ROTATE
+                )
+
+            case _:
+                loader, conversion = gltf.load(path, gltf.Coordinate.BLENDER_ROTATE)
 
         # build mesh
-        collection = bpy.data.collections.new(name=path.name)
-        context.scene.collection.children.link(collection)
-        bl_importer = blender_scene.Importer(collection, conversion)
-        bl_importer.load(loader)
+        if loader:
+            collection = bpy.data.collections.new(name=path.name)
+            context.scene.collection.children.link(collection)
+            bl_importer = blender_scene.Importer(collection, conversion)
+            bl_importer.load(loader)
 
-        logger.debug("#### end ####")
-        return {"FINISHED"}
+            logger.debug("#### end ####")
+            return {"FINISHED"}
+
+        else:
+            return {"FINISHED"}
 
 
 def menu(self, context: bpy.types.Context):
