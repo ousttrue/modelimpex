@@ -1,42 +1,60 @@
-from typing import Optional, Generator, Any
+from typing import Callable, Iterator, Any
 from .types import Float3
 import ctypes
 
 
 class VertexBuffer:
     def __init__(self) -> None:
-        self.POSITION: Optional[Generator[Any, None, None]] = None
-        self.NORMAL: Optional[Generator[Any, None, None]] = None
-        self.TEXCOORD_0: Optional[Generator[Any, None, None]] = None
-        self.JOINTS_0: Optional[Generator[Any, None, None]] = None
-        self.WEIGHTS_0: Optional[Generator[Any, None, None]] = None
+        self.POSITION: Callable[[], Iterator[tuple[float, float, float]]] | None = None
+        self.NORMAL: Callable[[], Iterator[tuple[float, float, float]]] | None = None
+        self.TEXCOORD_0: Callable[[], Iterator[tuple[float, float]]] | None = None
+        self.JOINTS_0: Callable[[], Iterator[tuple[int, int, int, int]]] | None = None
+        self.WEIGHTS_0: (
+            Callable[[], Iterator[tuple[float, float, float, float]]] | None
+        ) = None
 
-    def set_attribute(self, key: str, value: Generator[Any, None, None]):
+    def set_attribute(self, key: str, value: Any):
         if key == "POSITION":
-            self.POSITION = value # type: ignore
+            self.POSITION = value  # type: ignore
         elif key == "NORMAL":
-            self.NORMAL = value # type: ignore
+            self.NORMAL = value  # type: ignore
         elif key == "TEXCOORD_0":
-            self.TEXCOORD_0 = value # type: ignore
+            self.TEXCOORD_0 = value  # type: ignore
         elif key == "JOINTS_0":
-            self.JOINTS_0 = value # type: ignore
+            self.JOINTS_0 = value  # type: ignore
         elif key == "WEIGHTS_0":
-            self.WEIGHTS_0 = value # type: ignore
+            self.WEIGHTS_0 = value  # type: ignore
         else:
             raise NotImplementedError()
 
-    def get_vertices(self):
+    def get_vertices(
+        self,
+    ) -> Iterator[
+        tuple[
+            tuple[float, float, float],
+            tuple[float, float, float],
+            tuple[int, int, int, int],
+            tuple[float, float, float, float],
+        ]
+    ]:
+        assert self.POSITION
         pos = self.POSITION()
+        assert self.NORMAL
         nom = self.NORMAL()
 
-        def ng():
+        def ng_joint() -> Iterator[tuple[int, int, int, int]]:
             while True:
-                yield None
+                yield 0, 0, 0, 0
 
-        joints = ng
+        joints = ng_joint()
         if self.JOINTS_0:
             joints = self.JOINTS_0()
-        weights = ng
+
+        def ng_weight() -> Iterator[tuple[float, float, float, float]]:
+            while True:
+                yield 1, 0, 0, 0
+
+        weights = ng_weight()
         if self.WEIGHTS_0:
             weights = self.WEIGHTS_0()
 
@@ -56,10 +74,11 @@ class Submesh:
         self.index_offset = index_offset
         self.index_count = index_count
         self.vertex_offset = 0
-        self.indices: Optional[Generator[Any, None, None]] = None
-        self.vertices: Optional[VertexBuffer] = None
+        self.indices: Callable[[], Iterator[int]] | None = None
+        self.vertices: VertexBuffer | None = None
 
-    def get_indices(self):
+    def get_indices(self) -> Iterator[tuple[int, int, int]]:
+        assert self.indices
         i = self.indices()
         while True:
             try:
@@ -74,8 +93,8 @@ class Submesh:
 class Mesh:
     def __init__(self, name: str):
         self.name = name
-        self.submeshes = []
-        self.vertices: Optional[VertexBuffer] = None
+        self.submeshes: list[Submesh] = []
+        self.vertices: VertexBuffer | None = None
 
 
 class ExportMesh:
@@ -97,9 +116,11 @@ class ExportMesh:
             self.normal_splitted = True
 
     def split(self) -> "ExportMesh":
-        vertices = []
-        vertex_map = {}
-        indices = []
+        vertices: list[
+            tuple[tuple[float, float, float], tuple[float, float, float]]
+        ] = []
+        vertex_map: dict[tuple[float, float, float, float, float, float], int] = {}
+        indices: list[int] = []
         for i, n in zip(self.indices, self.loop_normals):
             p = self.POSITION[i]
             key = (p.x, p.y, p.z, n.x, n.y, n.z)

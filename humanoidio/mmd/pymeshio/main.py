@@ -7,7 +7,7 @@ import sys
 import os
 import io
 from .pmd import pmd_reader
-from .pmx import writer
+from .pmx import pmx_writer
 from . import converter
 
 
@@ -17,7 +17,7 @@ def pmd_to_pmx():
         sys.exit()
     pmd=pmd_reader.read_from_file(sys.argv[1])
     pmx=converter.pmd_to_pmx(pmd)
-    writer.write(io.open(sys.argv[2], "wb"), pmx)
+    pmx_writer.write(io.open(sys.argv[2], "wb"), pmx)
 
 def pmd_diff():
     if len(sys.argv)<3:

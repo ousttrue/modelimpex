@@ -23,9 +23,6 @@ __license__ = "zlib"
 __versioon__ = "1.0.0"
 
 from typing import Self
-import io
-import os
-import struct
 from .. import common
 
 
@@ -1348,7 +1345,7 @@ class Joint(common.Diff):
         self._diff(rhs, "spring_constant_rotation")
 
 
-class Model(common.Diff):
+class Pmx(common.Diff):
     """
     ==========
     pmx model
@@ -1456,7 +1453,7 @@ class Model(common.Diff):
 
     def __eq__(self, rhs: object) -> bool:
         match rhs:
-            case Model():
+            case Pmx():
                 return (
                     self.version == rhs.version
                     and self.name == rhs.name

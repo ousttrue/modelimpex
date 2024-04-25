@@ -1,13 +1,15 @@
+from typing import Iterator
+import logging
+import io
+
 from .pymeshio.pmd import pmd_format as pmd_model
 from .pymeshio.pmd import pmd_reader as pmd_reader
 
-from .pymeshio.pmx import model as pmx_model
-from .pymeshio.pmx import reader as pmx_reader
+from .pymeshio.pmx import pmx_format as pmx_model
+from .pymeshio.pmx import pmx_reader as pmx_reader
 
 from .. import gltf
 
-import logging
-import io
 
 LOGGER = logging.getLogger(__name__)
 
@@ -30,7 +32,7 @@ def pmd_to_gltf(pmd: pmd_model.Pmd) -> gltf.Loader:
     return loader
 
 
-def pmx_to_gltf(src: pmx_model.Model) -> gltf.Loader:
+def pmx_to_gltf(src: pmx_model.Pmx) -> gltf.Loader:
     """
     model
       mesh
@@ -59,7 +61,7 @@ def pmx_to_gltf(src: pmx_model.Model) -> gltf.Loader:
     mesh_node.mesh = gltf.Mesh("mesh")
     mesh_node.mesh.vertices = gltf.VertexBuffer()
 
-    def pos_gen():
+    def pos_gen() -> Iterator[tuple[float, float, float]]:
         it = iter(src.vertices)
         while True:
             try:
@@ -68,7 +70,7 @@ def pmx_to_gltf(src: pmx_model.Model) -> gltf.Loader:
             except StopIteration:
                 break
 
-    def normal_gen():
+    def normal_gen() -> Iterator[tuple[float, float, float]]:
         it = iter(src.vertices)
         while True:
             try:
@@ -77,29 +79,37 @@ def pmx_to_gltf(src: pmx_model.Model) -> gltf.Loader:
             except StopIteration:
                 break
 
-    def joint_gen():
+    def joint_gen() -> Iterator[tuple[int, int, int, int]]:
         it = iter(src.vertices)
         while True:
             try:
                 v = next(it)
                 match v.deform:
+                    case pmx_model.Bdef1() as d:
+                        yield (d.index0, 0, 0, 0)
+                    case pmx_model.Bdef2() as d:
+                        yield (d.index0, d.index1, 0, 0)
                     case pmx_model.Bdef4() as d:
                         yield (d.index0, d.index1, d.index2, d.index3)
                     case _:
-                        raise NotImplemented()
+                        raise NotImplementedError(type(v.deform))
             except StopIteration:
                 break
 
-    def weight_gen():
+    def weight_gen() -> Iterator[tuple[float, float, float, float]]:
         it = iter(src.vertices)
         while True:
             try:
                 v = next(it)
                 match v.deform:
+                    case pmx_model.Bdef1() as d:
+                        yield (1, 0, 0, 0)
+                    case pmx_model.Bdef2() as d:
+                        yield (d.weight0, 1 - d.weight0, 0, 0)
                     case pmx_model.Bdef4() as d:
                         yield (d.weight0, d.weight1, d.weight2, d.weight3)
                     case _:
-                        raise NotImplemented()
+                        raise NotImplementedError(type(v.deform))
             except StopIteration:
                 break
 
@@ -161,6 +171,6 @@ def load(data: bytes) -> gltf.Loader | None:
         src = pmd_reader.read(io.BytesIO(data))  # type: ignore
         if src:
             LOGGER.debug(src)
-            return src
+            return pmd_to_gltf(src)
     except Exception:
         pass

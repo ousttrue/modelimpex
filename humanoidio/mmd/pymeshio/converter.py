@@ -4,7 +4,7 @@ convert model
 """
 
 from . import common
-from .pmx import model as pmx
+from .pmx import pmx_format as pmx
 from .pmd import pmd_format as pmd
 
 
@@ -16,7 +16,7 @@ class ConvertException(Exception):
     pass
 
 
-def pmd_to_pmx(src: pmd.Pmd) -> pmx.Model:
+def pmd_to_pmx(src: pmd.Pmd) -> pmx.Pmx:
     """
     return pymeshio.pmx.Model.
 
@@ -24,7 +24,7 @@ def pmd_to_pmx(src: pmd.Pmd) -> pmx.Model:
         src
             pymeshio.pmd.Model
     """
-    dst = pmx.Model()
+    dst = pmx.Pmx()
     # model info
     dst.name = src.name
     dst.english_name = src.english_name

@@ -5,10 +5,10 @@ pmx writer
 from typing import Callable
 import io
 from .. import common
-from . import model
+from . import pmx_format
 
 
-class Writer(common.BinaryWriter):
+class PmxWriter(common.BinaryWriter):
     """pmx writer"""
 
     def __init__(
@@ -23,7 +23,7 @@ class Writer(common.BinaryWriter):
         morph_index_size: int,
         rigidbody_index_size: int,
     ):
-        super(Writer, self).__init__(ios)
+        super(PmxWriter, self).__init__(ios)
         if text_encoding == 0:
 
             def write_text_utf16(unicode: str):
@@ -67,7 +67,7 @@ class Writer(common.BinaryWriter):
             lambda index: self.write_int(index, rigidbody_index_size)
         )
 
-    def write_vertices(self, vertices: list[model.Vertex]) -> None:
+    def write_vertices(self, vertices: list[pmx_format.Vertex]) -> None:
         self.write_int(len(vertices), 4)
         for v in vertices:
             self.write_vector3(v.position)
@@ -77,17 +77,20 @@ class Writer(common.BinaryWriter):
             self.write_float(v.edge_factor)
 
     def write_deform(
-        self, deform: model.Bdef1 | model.Bdef2 | model.Bdef4 | model.Sdef
+        self,
+        deform: (
+            pmx_format.Bdef1 | pmx_format.Bdef2 | pmx_format.Bdef4 | pmx_format.Sdef
+        ),
     ) -> None:
-        if isinstance(deform, model.Bdef1):
+        if isinstance(deform, pmx_format.Bdef1):
             self.write_int(0, 1)
             self.write_bone_index(deform.index0)
-        elif isinstance(deform, model.Bdef2):
+        elif isinstance(deform, pmx_format.Bdef2):
             self.write_int(1, 1)
             self.write_bone_index(deform.index0)
             self.write_bone_index(deform.index1)
             self.write_float(deform.weight0)
-        elif isinstance(deform, model.Bdef4):
+        elif isinstance(deform, pmx_format.Bdef4):
             self.write_int(2, 1)
             self.write_bone_index(deform.index0)
             self.write_bone_index(deform.index1)
@@ -110,7 +113,7 @@ class Writer(common.BinaryWriter):
         for t in textures:
             self.write_text(t)
 
-    def write_materials(self, materials: list[model.Material]) -> None:
+    def write_materials(self, materials: list[pmx_format.Material]) -> None:
         self.write_int(len(materials), 4)
         for m in materials:
             self.write_text(m.name)
@@ -138,7 +141,7 @@ class Writer(common.BinaryWriter):
             self.write_text(m.comment)
             self.write_int(m.vertex_count, 4)
 
-    def write_bones(self, bones: list[model.Bone]) -> None:
+    def write_bones(self, bones: list[pmx_format.Bone]) -> None:
         self.write_int(len(bones), 4)
         for bone in bones:
             self.write_text(bone.name)
@@ -174,7 +177,7 @@ class Writer(common.BinaryWriter):
                 assert bone.ik
                 self.write_ik(bone.ik)
 
-    def write_ik(self, ik: model.Ik) -> None:
+    def write_ik(self, ik: pmx_format.Ik) -> None:
         self.write_bone_index(ik.target_index)
         self.write_int(ik.loop, 4)
         self.write_float(ik.limit_radian)
@@ -182,7 +185,7 @@ class Writer(common.BinaryWriter):
         for l in ik.link:
             self.write_ik_link(l)
 
-    def write_ik_link(self, link: model.IkLink) -> None:
+    def write_ik_link(self, link: pmx_format.IkLink) -> None:
         self.write_bone_index(link.bone_index)
         self.write_int(link.limit_angle, 1)
         if link.limit_angle == 0:
@@ -195,7 +198,7 @@ class Writer(common.BinaryWriter):
                 "invalid ik link limit_angle: {0}".format(link.limit_angle)
             )
 
-    def write_morph(self, morphs: list[model.Morph]) -> None:
+    def write_morph(self, morphs: list[pmx_format.Morph]) -> None:
         self.write_int(len(morphs), 4)
         for m in morphs:
             self.write_text(m.name)
@@ -204,21 +207,21 @@ class Writer(common.BinaryWriter):
             self.write_int(m.morph_type, 1)
 
             match (m):
-                case model.GroupMorph():
+                case pmx_format.GroupMorph():
                     assert m.morph_type == 0
                     # todo
                     raise common.WriteException("not implemented GroupMorph")
-                case model.VertexMorph():
+                case pmx_format.VertexMorph():
                     assert m.morph_type == 1
                     self.write_int(len(m.offsets), 4)
                     for o in m.offsets:
                         self.write_vertex_index(o.vertex_index)
                         self.write_vector3(o.position_offset)
-                case model.BoneMorph():
+                case pmx_format.BoneMorph():
                     assert m.morph_type == 2
                     # todo
                     raise common.WriteException("not implemented BoneMorph")
-                case model.UVMorph():
+                case pmx_format.UVMorph():
                     assert (
                         m.morph_type == 3
                         or m.morph_type == 4
@@ -234,7 +237,7 @@ class Writer(common.BinaryWriter):
                         "unknown morph type: {0}".format(m.morph_type)
                     )
 
-    def write_display_slots(self, display_slots: list[model.DisplaySlot]) -> None:
+    def write_display_slots(self, display_slots: list[pmx_format.DisplaySlot]) -> None:
         self.write_int(len(display_slots), 4)
         for s in display_slots:
             self.write_text(s.name)
@@ -252,7 +255,7 @@ class Writer(common.BinaryWriter):
                         "unknown display_type: {0}".format(r[0])
                     )
 
-    def write_rigidbodies(self, rigidbodies: list[model.RigidBody]) -> None:
+    def write_rigidbodies(self, rigidbodies: list[pmx_format.RigidBody]) -> None:
         self.write_int(len(rigidbodies), 4)
         for rb in rigidbodies:
             self.write_text(rb.name)
@@ -271,7 +274,7 @@ class Writer(common.BinaryWriter):
             self.write_float(rb.param.friction)
             self.write_int(rb.mode, 1)
 
-    def write_joints(self, joints: list[model.Joint]) -> None:
+    def write_joints(self, joints: list[pmx_format.Joint]) -> None:
         self.write_int(len(joints), 4)
         for j in joints:
             self.write_text(j.name)
@@ -289,7 +292,7 @@ class Writer(common.BinaryWriter):
             self.write_vector3(j.spring_constant_rotation)
 
 
-def write(ios: io.IOBase, pmx: model.Model, text_encoding: int = 0) -> None:
+def write(ios: io.IOBase, pmx: pmx_format.Pmx, text_encoding: int = 0) -> None:
     """
     write model to ios.
 
@@ -306,11 +309,11 @@ def write(ios: io.IOBase, pmx: model.Model, text_encoding: int = 0) -> None:
 
     """
     assert isinstance(ios, io.IOBase)
-    assert isinstance(model, model.Model)
+    assert isinstance(pmx, pmx_format.Pmx)
     writer = common.BinaryWriter(ios)
     # header
     writer.write_bytes(b"PMX ")
-    writer.write_float(model.version)
+    writer.write_float(pmx.version)
 
     # flags
     writer.write_int(8, 1)
@@ -330,25 +333,25 @@ def write(ios: io.IOBase, pmx: model.Model, text_encoding: int = 0) -> None:
             raise common.WriteException("invalid array_size: {0}".format(size))
 
     # vertex_index_size
-    vertex_index_size = get_array_size(len(model.vertices))
+    vertex_index_size = get_array_size(len(pmx.vertices))
     writer.write_int(vertex_index_size, 1)
     # texture_index_size
-    texture_index_size = get_array_size(len(model.textures))
+    texture_index_size = get_array_size(len(pmx.textures))
     writer.write_int(texture_index_size, 1)
     # material_index_size
-    material_index_size = get_array_size(len(model.materials))
+    material_index_size = get_array_size(len(pmx.materials))
     writer.write_int(material_index_size, 1)
     # bone_index_size
-    bone_index_size = get_array_size(len(model.bones))
+    bone_index_size = get_array_size(len(pmx.bones))
     writer.write_int(bone_index_size, 1)
     # morph_index_size
-    morph_index_size = get_array_size(len(model.morphs))
+    morph_index_size = get_array_size(len(pmx.morphs))
     writer.write_int(morph_index_size, 1)
     # rigidbody_index_size
-    rigidbody_index_size = get_array_size(len(model.rigidbodies))
+    rigidbody_index_size = get_array_size(len(pmx.rigidbodies))
     writer.write_int(rigidbody_index_size, 1)
 
-    writer = Writer(
+    writer = PmxWriter(
         writer.ios,
         text_encoding,
         0,
@@ -361,23 +364,23 @@ def write(ios: io.IOBase, pmx: model.Model, text_encoding: int = 0) -> None:
     )
 
     # model info
-    writer.write_text(model.name)
-    writer.write_text(model.english_name)
-    writer.write_text(model.comment)
-    writer.write_text(model.english_comment)
+    writer.write_text(pmx.name)
+    writer.write_text(pmx.english_name)
+    writer.write_text(pmx.comment)
+    writer.write_text(pmx.english_comment)
 
     # model data
-    writer.write_vertices(model.vertices)
-    writer.write_indices(model.indices)
-    writer.write_textures(model.textures)
-    writer.write_materials(model.materials)
-    writer.write_bones(model.bones)
-    writer.write_morph(model.morphs)
-    writer.write_display_slots(model.display_slots)
-    writer.write_rigidbodies(model.rigidbodies)
-    writer.write_joints(model.joints)
+    writer.write_vertices(pmx.vertices)
+    writer.write_indices(pmx.indices)
+    writer.write_textures(pmx.textures)
+    writer.write_materials(pmx.materials)
+    writer.write_bones(pmx.bones)
+    writer.write_morph(pmx.morphs)
+    writer.write_display_slots(pmx.display_slots)
+    writer.write_rigidbodies(pmx.rigidbodies)
+    writer.write_joints(pmx.joints)
 
 
-def write_to_file(pmx_model: model.Model, path: str):
+def write_to_file(pmx_model: pmx_format.Pmx, path: str):
     with io.open(path, "wb") as f:
         return write(f, pmx_model)

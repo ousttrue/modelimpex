@@ -6,10 +6,10 @@ from typing import Callable
 import io
 import os
 from .. import common
-from . import model
+from . import pmx_format
 
 
-class Reader(common.BinaryReader):
+class PmxReader(common.BinaryReader):
     """pmx reader"""
 
     def __init__(
@@ -24,7 +24,7 @@ class Reader(common.BinaryReader):
         morph_index_size: int,
         rigidbody_index_size: int,
     ):
-        super(Reader, self).__init__(ios)
+        super(PmxReader, self).__init__(ios)
         self.read_text = self.get_read_text(text_encoding)
         if extended_uv > 0:
             raise common.ParseException(f"extended uv is not supported: {extended_uv}")
@@ -59,8 +59,8 @@ class Reader(common.BinaryReader):
         else:
             raise common.ParseException(f"unknown text encoding: {text_encoding}")
 
-    def read_vertex(self) -> model.Vertex:
-        return model.Vertex(
+    def read_vertex(self) -> pmx_format.Vertex:
+        return pmx_format.Vertex(
             self.read_vector3(),  # pos
             self.read_vector3(),  # normal
             self.read_vector2(),  # uv
@@ -68,16 +68,16 @@ class Reader(common.BinaryReader):
             self.read_float(),  # edge factor
         )
 
-    def read_deform(self) -> model.Bdef1 | model.Bdef2 | model.Bdef4 | model.Sdef:
+    def read_deform(self) -> pmx_format.Bdef1 | pmx_format.Bdef2 | pmx_format.Bdef4 | pmx_format.Sdef:
         deform_type = self.read_int(1)
         if deform_type == 0:
-            return model.Bdef1(self.read_bone_index())
+            return pmx_format.Bdef1(self.read_bone_index())
         elif deform_type == 1:
-            return model.Bdef2(
+            return pmx_format.Bdef2(
                 self.read_bone_index(), self.read_bone_index(), self.read_float()
             )
         elif deform_type == 2:
-            return model.Bdef4(
+            return pmx_format.Bdef4(
                 self.read_bone_index(),
                 self.read_bone_index(),
                 self.read_bone_index(),
@@ -88,7 +88,7 @@ class Reader(common.BinaryReader):
                 self.read_float(),
             )
         elif deform_type == 3:
-            return model.Sdef(
+            return pmx_format.Sdef(
                 self.read_bone_index(),
                 self.read_bone_index(),
                 self.read_float(),
@@ -99,8 +99,8 @@ class Reader(common.BinaryReader):
         else:
             raise common.ParseException("unknown deform type: {0}".format(deform_type))
 
-    def read_material(self) -> model.Material:
-        material = model.Material(
+    def read_material(self) -> pmx_format.Material:
+        material = pmx_format.Material(
             name=self.read_text(),
             english_name=self.read_text(),
             diffuse_color=self.read_rgb(),
@@ -128,8 +128,8 @@ class Reader(common.BinaryReader):
         material.vertex_count = self.read_int(4)
         return material
 
-    def read_bone(self) -> model.Bone:
-        bone = model.Bone(
+    def read_bone(self) -> pmx_format.Bone:
+        bone = pmx_format.Bone(
             name=self.read_text(),
             english_name=self.read_text(),
             position=self.read_vector3(),
@@ -165,8 +165,8 @@ class Reader(common.BinaryReader):
 
         return bone
 
-    def read_ik(self) -> model.Ik:
-        ik = model.Ik(
+    def read_ik(self) -> pmx_format.Ik:
+        ik = pmx_format.Ik(
             target_index=self.read_bone_index(),
             loop=self.read_int(4),
             limit_radian=self.read_float(),
@@ -175,8 +175,8 @@ class Reader(common.BinaryReader):
         ik.link = [self.read_ik_link() for _ in range(link_size)]
         return ik
 
-    def read_ik_link(self) -> model.IkLink:
-        link = model.IkLink(self.read_bone_index(), self.read_int(1))
+    def read_ik_link(self) -> pmx_format.IkLink:
+        link = pmx_format.IkLink(self.read_bone_index(), self.read_int(1))
         if link.limit_angle == 0:
             pass
         elif link.limit_angle == 1:
@@ -188,7 +188,7 @@ class Reader(common.BinaryReader):
             )
         return link
 
-    def read_morph(self) -> model.Morph:
+    def read_morph(self) -> pmx_format.Morph:
         name = self.read_text()
         english_name = self.read_text()
         panel = self.read_int(1)
@@ -197,7 +197,7 @@ class Reader(common.BinaryReader):
         if morph_type == 0:
             # group
             offsets = [self.read_group_morph_data() for _ in range(offset_size)]
-            return model.GroupMorph(
+            return pmx_format.GroupMorph(
                 name,
                 english_name,
                 panel,
@@ -209,7 +209,7 @@ class Reader(common.BinaryReader):
             offsets = [
                 self.read_vertex_position_morph_offset() for _ in range(offset_size)
             ]
-            return model.VertexMorph(
+            return pmx_format.VertexMorph(
                 name,
                 english_name,
                 panel,
@@ -219,7 +219,7 @@ class Reader(common.BinaryReader):
         elif morph_type == 2:
             # bone
             offsets = [self.read_bone_morph_data() for _ in range(offset_size)]
-            return model.BoneMorph(
+            return pmx_format.BoneMorph(
                 name,
                 english_name,
                 panel,
@@ -229,7 +229,7 @@ class Reader(common.BinaryReader):
         elif morph_type == 3:
             # uv
             offsets = [self.read_uv_morph_data() for _ in range(offset_size)]
-            return model.UVMorph(
+            return pmx_format.UVMorph(
                 name,
                 english_name,
                 panel,
@@ -239,7 +239,7 @@ class Reader(common.BinaryReader):
         elif morph_type == 4:
             # uv extended1
             offsets = [self.read_uv_morph_data() for _ in range(offset_size)]
-            return model.UVMorph(
+            return pmx_format.UVMorph(
                 name,
                 english_name,
                 panel,
@@ -249,7 +249,7 @@ class Reader(common.BinaryReader):
         elif morph_type == 5:
             # uv extended2
             offsets = [self.read_uv_morph_data() for _ in range(offset_size)]
-            return model.UVMorph(
+            return pmx_format.UVMorph(
                 name,
                 english_name,
                 panel,
@@ -259,7 +259,7 @@ class Reader(common.BinaryReader):
         elif morph_type == 6:
             # uv extended3
             offsets = [self.read_uv_morph_data() for _ in range(offset_size)]
-            return model.UVMorph(
+            return pmx_format.UVMorph(
                 name,
                 english_name,
                 panel,
@@ -269,7 +269,7 @@ class Reader(common.BinaryReader):
         elif morph_type == 7:
             # uv extended4
             offsets = [self.read_uv_morph_data() for _ in range(offset_size)]
-            return model.UVMorph(
+            return pmx_format.UVMorph(
                 name,
                 english_name,
                 panel,
@@ -279,7 +279,7 @@ class Reader(common.BinaryReader):
         elif morph_type == 8:
             # material
             offsets = [self.read_material_morph_data() for _ in range(offset_size)]
-            return model.MaterialMorph(
+            return pmx_format.MaterialMorph(
                 name,
                 english_name,
                 panel,
@@ -289,25 +289,25 @@ class Reader(common.BinaryReader):
         else:
             raise common.ParseException("unknown morph type: {0}".format(morph_type))
 
-    def read_group_morph_data(self) -> model.GroupMorphData:
-        return model.GroupMorphData(self.read_morph_index(), self.read_float())
+    def read_group_morph_data(self) -> pmx_format.GroupMorphData:
+        return pmx_format.GroupMorphData(self.read_morph_index(), self.read_float())
 
-    def read_vertex_position_morph_offset(self) -> model.VertexMorphData:
-        return model.VertexMorphData(self.read_vertex_index(), self.read_vector3())
+    def read_vertex_position_morph_offset(self) -> pmx_format.VertexMorphData:
+        return pmx_format.VertexMorphData(self.read_vertex_index(), self.read_vector3())
 
-    def read_bone_morph_data(self) -> model.BoneMorphData:
-        return model.BoneMorphData(
+    def read_bone_morph_data(self) -> pmx_format.BoneMorphData:
+        return pmx_format.BoneMorphData(
             self.read_bone_index(), self.read_vector3(), self.read_quaternion()
         )
 
-    def read_uv_morph_data(self) -> model.UVMorphData:
-        return model.UVMorphData(
+    def read_uv_morph_data(self) -> pmx_format.UVMorphData:
+        return pmx_format.UVMorphData(
             self.read_vertex_index(),
             self.read_vector4(),
         )
 
-    def read_material_morph_data(self) -> model.MaterialMorphData:
-        return model.MaterialMorphData(
+    def read_material_morph_data(self) -> pmx_format.MaterialMorphData:
+        return pmx_format.MaterialMorphData(
             self.read_material_index(),
             self.read_int(1),
             self.read_rgba(),
@@ -322,7 +322,7 @@ class Reader(common.BinaryReader):
         )
 
     def read_display_slot(self):
-        display_slot = model.DisplaySlot(
+        display_slot = pmx_format.DisplaySlot(
             self.read_text(), self.read_text(), self.read_int(1)
         )
         display_count = self.read_int(4)
@@ -339,7 +339,7 @@ class Reader(common.BinaryReader):
         return display_slot
 
     def read_rigidbody(self):
-        return model.RigidBody(
+        return pmx_format.RigidBody(
             name=self.read_text(),
             english_name=self.read_text(),
             bone_index=self.read_bone_index(),
@@ -358,7 +358,7 @@ class Reader(common.BinaryReader):
         )
 
     def read_joint(self):
-        return model.Joint(
+        return pmx_format.Joint(
             name=self.read_text(),
             english_name=self.read_text(),
             joint_type=self.read_int(1),
@@ -375,7 +375,7 @@ class Reader(common.BinaryReader):
         )
 
 
-def read_from_file(path: str) -> model.Model | None:
+def read_from_file(path: str) -> pmx_format.Pmx | None:
     """
     read from file path, then return the pmx.Model.
 
@@ -398,7 +398,7 @@ def read_from_file(path: str) -> model.Model | None:
         return pmx
 
 
-def read(ios: io.IOBase) -> model.Model | None:
+def read(ios: io.IOBase) -> pmx_format.Pmx | None:
     """
     read from ios, then return the pmx pmx.Model.
 
@@ -424,7 +424,7 @@ def read(ios: io.IOBase) -> model.Model | None:
     if version != 2.0:
         print("unknown version", version)
 
-    pmx = model.Model(version)
+    pmx = pmx_format.Pmx(version)
 
     # flags
     flag_bytes = reader.read_int(1)
@@ -440,7 +440,7 @@ def read(ios: io.IOBase) -> model.Model | None:
     rigidbody_index_size = reader.read_int(1)
 
     # pmx custom reader
-    reader = Reader(
+    reader = PmxReader(
         reader.ios,
         text_encoding,
         extended_uv,
