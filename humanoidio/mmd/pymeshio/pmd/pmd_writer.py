@@ -5,11 +5,11 @@ pmd writer
 import io
 import struct
 from .. import common
-from . import model
+from . import pmd_format
 
 
-class Writer(common.BinaryWriter):
-    def write_veritices(self, vertices: list[model.Vertex]) -> None:
+class PmdWriter(common.BinaryWriter):
+    def write_veritices(self, vertices: list[pmd_format.Vertex]) -> None:
         self.write_uint(len(vertices), 4)
         for v in vertices:
             self.write_vector3(v.pos)
@@ -24,7 +24,7 @@ class Writer(common.BinaryWriter):
         self.write_uint(len(indices), 4)
         self.ios.write(struct.pack("=%dH" % len(indices), *indices))
 
-    def write_materials(self, materials: list[model.Material]) -> None:
+    def write_materials(self, materials: list[pmd_format.Material]) -> None:
         self.write_uint(len(materials), 4)
         for m in materials:
             self.write_rgb(m.diffuse_color)
@@ -37,7 +37,7 @@ class Writer(common.BinaryWriter):
             self.write_uint(m.vertex_count, 4)
             self.write_bytes(m.texture_file.encode("cp932"), 20)
 
-    def write_bones(self, bones: list[model.Bone]) -> None:
+    def write_bones(self, bones: list[pmd_format.Bone]) -> None:
         self.write_uint(len(bones), 2)
         sBone = struct.Struct("=20sHHBH3f")
         assert sBone.size == 39
@@ -49,7 +49,7 @@ class Writer(common.BinaryWriter):
             self.write_uint(b.ik_index, 2)
             self.write_vector3(b.pos)
 
-    def write_ik_list(self, ik_list: list[model.IK]) -> None:
+    def write_ik_list(self, ik_list: list[pmd_format.IK]) -> None:
         self.write_uint(len(ik_list), 2)
         for ik in ik_list:
             self.write_uint(ik.index, 2)
@@ -59,7 +59,7 @@ class Writer(common.BinaryWriter):
             self.write_float(ik.weight)
             self.ios.write(struct.pack("=%dH" % len(ik.children), *ik.children))
 
-    def write_morphs(self, morphs: list[model.Morph]) -> None:
+    def write_morphs(self, morphs: list[pmd_format.Morph]) -> None:
         self.write_uint(len(morphs), 2)
         for morph in morphs:
             self.write_bytes(morph.name.encode("cp932"), 20)
@@ -73,7 +73,7 @@ class Writer(common.BinaryWriter):
         self.write_uint(len(morph_indices), 1)
         self.ios.write(struct.pack("=%dH" % len(morph_indices), *morph_indices))
 
-    def write_bone_group_list(self, bone_group_list: list[model.BoneGroup]) -> None:
+    def write_bone_group_list(self, bone_group_list: list[pmd_format.BoneGroup]) -> None:
         self.write_uint(len(bone_group_list), 1)
         for g in bone_group_list:
             self.write_bytes(g.name.encode("cp932"), 50)
@@ -84,7 +84,7 @@ class Writer(common.BinaryWriter):
             self.write_uint(l[0], 2)
             self.write_uint(l[1], 1)
 
-    def write_rigidbodies(self, rigidbodies: list[model.RigidBody]) -> None:
+    def write_rigidbodies(self, rigidbodies: list[pmd_format.RigidBody]) -> None:
         self.write_uint(len(rigidbodies), 4)
         for r in rigidbodies:
             self.write_bytes(r.name.encode("cp932"), 20)
@@ -102,7 +102,7 @@ class Writer(common.BinaryWriter):
             self.write_float(r.friction)
             self.write_uint(r.mode, 1)
 
-    def write_joints(self, joints: list[model.Joint]) -> None:
+    def write_joints(self, joints: list[pmd_format.Joint]) -> None:
         self.write_uint(len(joints), 4)
         for j in joints:
             self.write_bytes(j.name.encode("cp932"), 20)
@@ -118,7 +118,7 @@ class Writer(common.BinaryWriter):
             self.write_vector3(j.spring_constant_rotation)
 
 
-def write(ios: io.IOBase, src: model.Model) -> None:
+def write(ios: io.IOBase, src: pmd_format.Pmd) -> None:
     """
     write model to ios.
 
@@ -133,8 +133,8 @@ def write(ios: io.IOBase, src: model.Model) -> None:
 
     """
     assert isinstance(ios, io.IOBase)
-    assert isinstance(src, model.Model)
-    writer = Writer(ios)
+    assert isinstance(src, pmd_format.Pmd)
+    writer = PmdWriter(ios)
     writer.write_bytes(b"Pmd")
     writer.write_float(src.version)
     writer.write_bytes(src.name.encode("cp932"), 20)

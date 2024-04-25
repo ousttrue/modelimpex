@@ -4,14 +4,14 @@ pmd reader
 """
 import io
 from .. import common
-from . import model
+from . import pmd_format
 
 
-class Reader(common.BinaryReader):
+class PmdReader(common.BinaryReader):
     """pmx reader"""
 
     def __init__(self, ios: io.IOBase, version: float):
-        super(Reader, self).__init__(ios)
+        super(PmdReader, self).__init__(ios)
         self.version = version
 
     def read_text(self, size: int) -> str:
@@ -24,8 +24,8 @@ class Reader(common.BinaryReader):
         else:
             return src[:pos].decode("cp932")
 
-    def read_vertex(self) -> model.Vertex:
-        return model.Vertex(
+    def read_vertex(self) -> pmd_format.Vertex:
+        return pmd_format.Vertex(
             self.read_vector3(),
             self.read_vector3(),
             self.read_vector2(),
@@ -35,8 +35,8 @@ class Reader(common.BinaryReader):
             self.read_uint(1),
         )
 
-    def read_material(self) -> model.Material:
-        return model.Material(
+    def read_material(self) -> pmd_format.Material:
+        return pmd_format.Material(
             diffuse_color=self.read_rgb(),
             alpha=self.read_float(),
             specular_factor=self.read_float(),
@@ -48,19 +48,19 @@ class Reader(common.BinaryReader):
             texture_file=self.read_text(20),
         )
 
-    def read_bone(self) -> model.Bone:
+    def read_bone(self) -> pmd_format.Bone:
         name = self.read_text(20)
         parent_index = self.read_uint(2)
         tail_index = self.read_uint(2)
-        bone = model.createBone(name, self.read_uint(1))
+        bone = pmd_format.createBone(name, self.read_uint(1))
         bone.parent_index = parent_index
         bone.tail_index = tail_index
         bone.ik_index = self.read_uint(2)
         bone.pos = self.read_vector3()
         return bone
 
-    def read_ik(self) -> model.IK:
-        ik = model.IK(self.read_uint(2), self.read_uint(2))
+    def read_ik(self) -> pmd_format.IK:
+        ik = pmd_format.IK(self.read_uint(2), self.read_uint(2))
         ik.length = self.read_uint(1)
         ik.iterations = self.read_uint(2)
         ik.weight = self.read_float()
@@ -68,7 +68,7 @@ class Reader(common.BinaryReader):
         return ik
 
     def read_morph(self):
-        morph = model.Morph(self.read_text(20))
+        morph = pmd_format.Morph(self.read_text(20))
         morph_size = self.read_uint(4)
         morph.type = self.read_uint(1)
         for _ in range(morph_size):
@@ -77,7 +77,7 @@ class Reader(common.BinaryReader):
         return morph
 
     def read_rigidbody(self):
-        return model.RigidBody(
+        return pmd_format.RigidBody(
             name=self.read_text(20),
             bone_index=self.read_int(2),
             collision_group=self.read_int(1),
@@ -95,7 +95,7 @@ class Reader(common.BinaryReader):
         )
 
     def read_joint(self):
-        return model.Joint(
+        return pmd_format.Joint(
             name=self.read_text(20),
             rigidbody_index_a=self.read_uint(4),
             rigidbody_index_b=self.read_uint(4),
@@ -110,7 +110,7 @@ class Reader(common.BinaryReader):
         )
 
 
-def __read(reader: Reader, model: model.Model):
+def __read(reader: PmdReader, model: pmd_format.Pmd):
     # model info
     model.name = reader.read_text(20)
     model.comment = reader.read_text(256)
@@ -124,7 +124,7 @@ def __read(reader: Reader, model: model.Model):
     model.morphs = [reader.read_morph() for _ in range(reader.read_uint(2))]
     model.morph_indices = [reader.read_uint(2) for _ in range(reader.read_uint(1))]
     model.bone_group_list = [
-        model.BoneGroup(reader.read_text(50)) for _ in range(reader.read_uint(1))
+        pmd_format.BoneGroup(reader.read_text(50)) for _ in range(reader.read_uint(1))
     ]
     model.bone_display_list = [
         (reader.read_uint(2), reader.read_uint(1)) for _i in range(reader.read_uint(4))
@@ -144,7 +144,7 @@ def __read(reader: Reader, model: model.Model):
         for bone in model.bones:
             bone.english_name = reader.read_text(20)
         for morph in model.morphs:
-            if morph.name == b"base":
+            if morph.name == "base":
                 continue
             morph.english_name = reader.read_text(20)
         for g in model.bone_group_list:
@@ -171,7 +171,7 @@ def __read(reader: Reader, model: model.Model):
     return True
 
 
-def read_from_file(path):
+def read_from_file(path: str) -> pmd_format.Pmd | None:
     """
     read from file path, then return the pymeshio.pmd.Model.
 
@@ -186,11 +186,12 @@ def read_from_file(path):
 
     """
     pmd = read(io.BytesIO(common.readall(path)))
-    pmd.path = path
-    return pmd
+    if pmd:
+        pmd.path = path
+        return pmd
 
 
-def read(ios):
+def read(ios: io.IOBase) -> pmd_format.Pmd | None:
     """
     read from ios, then return the pymeshio.pmd.Model.
 
@@ -208,13 +209,13 @@ def read(ios):
     reader = common.BinaryReader(ios)
 
     # header
-    signature = reader._unpack("3s", 3)
+    signature = reader.read_bytes(3)
     if signature != b"Pmd":
         raise common.ParseException("invalid signature: {0}".format(signature))
     version = reader.read_float()
 
-    model = model.Model(version)
-    reader = Reader(reader.ios, version)
+    model = pmd_format.Pmd(version)
+    reader = PmdReader(reader.ios, version)
     if __read(reader, model):
         # check eof
         if not reader.is_end():

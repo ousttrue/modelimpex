@@ -285,7 +285,7 @@ class Bone(common.Diff):
         self.parent_index = 0xFFFF
         self.tail_index = 0
         self.tail = common.Vector3(0, 0, 0)
-        self.parent = None
+        self.parent: Bone | None = None
         self.ik_index = 0xFFFF
         self.pos = common.Vector3(0, 0, 0)
         self.children: list[Bone] = []
@@ -762,7 +762,7 @@ class Joint(common.Diff):
         self._diff(rhs, "spring_constant_rotation")
 
 
-class Model(common.Diff):
+class Pmd(common.Diff):
     """pmd loader class.
 
     Attributes:
@@ -817,7 +817,7 @@ class Model(common.Diff):
         self.rigidbodies: list[RigidBody] = []
         self.joints: list[Joint] = []
         # innner use
-        self.no_parent_bones: list[int] = []
+        self.no_parent_bones: list[Bone] = []
 
     def each_vertex(self) -> Iterable[Vertex]:
         return self.vertices
@@ -842,7 +842,7 @@ class Model(common.Diff):
 
     def __eq__(self, rhs: object) -> bool:
         match rhs:
-            case Model():
+            case Pmd():
                 return (
                     self.name == rhs.name
                     and self.comment == rhs.comment

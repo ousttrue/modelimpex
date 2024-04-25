@@ -4,8 +4,8 @@ import os
 import sys
 from .. import common
 from .. import pmm
-from ..pmd import model
-from ..pmd import reader as pmd_reader
+from ..pmd import pmd_format
+from ..pmd import pmd_reader as pmd_reader
 
 
 class Reader(common.BinaryReader):

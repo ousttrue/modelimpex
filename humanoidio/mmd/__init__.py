@@ -1,5 +1,5 @@
-from .pymeshio.pmd import model as pmd_model
-from .pymeshio.pmd import reader as pmd_reader
+from .pymeshio.pmd import pmd_format as pmd_model
+from .pymeshio.pmd import pmd_reader as pmd_reader
 
 from .pymeshio.pmx import model as pmx_model
 from .pymeshio.pmx import reader as pmx_reader
@@ -16,7 +16,7 @@ def z_reverse(x: float, y: float, z: float) -> tuple[float, float, float]:
     return (x, y, -z)
 
 
-def pmd_to_gltf(pmd: pmd_model.Model) -> gltf.Loader:
+def pmd_to_gltf(pmd: pmd_model.Pmd) -> gltf.Loader:
 
     loader = gltf.Loader()
 
