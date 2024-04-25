@@ -5,7 +5,7 @@ generate pyi from rna_info
 import bpy  # type: ignore
 import rna_info  #  type: ignore
 
-from typing import Any, Iterator, List
+from typing import Any, Iterator
 import io
 import logging
 import argparse
@@ -22,6 +22,10 @@ INCLUDE_MODULES = [
 ]
 
 
+def quote(src: str) -> str:
+    return '"' + src + '"'
+
+
 class StructStubGenerator:
     def __init__(
         self,
@@ -31,15 +35,15 @@ class StructStubGenerator:
         self.output = output
         self.dependencies = []
         self.structs = structs
-        self.resolved: set[str] = set()
+        self.resolved: dict[str, set[str]] = {}
 
     def generate(self):
-        names: List[str] = []
+        names: list[str] = []
         for _, name in self.structs.keys():
             for d in self._resolve_dependency(name):
                 names.append(d)
 
-        mod_map: dict[str, List[str]] = {}
+        mod_map: dict[str, list[str]] = {}
         for name in names:
             s = self.structs[("", name)]
             mod = mod_map.get(s.module_name)
@@ -59,21 +63,36 @@ class StructStubGenerator:
     def _resolve_dependency(self, name: str) -> Iterator[str]:
         if name in self.resolved:
             return
-        self.resolved.add(name)
+        deps: set[str] = set()
+        self.resolved[name] = deps
 
         s = self.structs.get(("", name))  # type: ignore
         if s:
             if s.base:
+                deps.add(s.base.identifier)
                 for child in self._resolve_dependency(s.base.identifier):
                     yield child
             for p in s.properties:
                 match p.type:
                     case "pointer":
+                        deps.add(p.fixed_type.identifier)
                         for child in self._resolve_dependency(p.fixed_type.identifier):
                             yield child
                     case "collection":
-                        for child in self._resolve_dependency(p.fixed_type.identifier):
-                            yield child
+                        # if p.name == 'children':
+                        #     pass
+                        if p.collection_type:
+                            deps.add(p.collection_type.identifier)
+                            for child in self._resolve_dependency(
+                                p.collection_type.identifier
+                            ):
+                                yield child
+                        else:
+                            deps.add(p.fixed_type.identifier)
+                            for child in self._resolve_dependency(
+                                p.fixed_type.identifier
+                            ):
+                                yield child
                     case _:
                         pass
 
@@ -99,7 +118,11 @@ class StructStubGenerator:
                 # raise NotImplemented()
 
             case "collection":
-                return f"List[{v.fixed_type.identifier}]"
+                # return f"bpy_prop_collection[{v.fixed_type.identifier}]"
+                if v.collection_type:
+                    return v.collection_type.identifier
+                else:
+                    return v.fixed_type.identifier
 
             case _:
                 match v.array_length:
@@ -110,32 +133,62 @@ class StructStubGenerator:
 
     def _create_struct(self, f: io.TextIOBase, name: str):
         s = self.structs[("", name)]
+
+        if name == "BlendDataObjects":
+            pass
+
+        f.write("from typiing import Literal # type: ignore\n")
+
+        if s.base:
+            base_struct = s.base.identifier
+        elif s.description.startswith("Collection of "):
+            item_type = name[:-1]
+            f.write(f"from .{item_type} import {item_type}\n")
+            base_struct = f"bpy_prop_collection[{item_type}]"
+            f.write(f"from .bpy_prop_collection import bpy_prop_collection\n")
+        else:
+            base_struct = "bpy_struct"
+            f.write(f"from .bpy_struct import bpy_struct\n")
+
+        deps = self.resolved[name]
+        for d in deps:
+            if d == name:
+                continue
+            if d == "CyclesObjectSettings":
+                continue
+            f.write(f"from .{d} import {d}\n")
+
         f.write(
             f"""
-                
-class {s.identifier}({s.base.identifier if s.base else ""}):
+class {s.identifier}({base_struct}):
     ...
 """
         )
         for _, v in enumerate(s.properties):
-            # if i == 0:
-            #     for d in dir(v):
-            #         print(d)
+            if v.identifier == "active_object":
+                pass
             f.write(f"    {v.identifier}: {self._type_str(v)}\n")
 
-    def _create_module(self, k: str, v: List[str]):
-        pyi = self.output / (k.replace(".", "/") + ".pyi")
-        # bpy_types_init = bpy / "types.pyi"
-        pyi.parent.mkdir(parents=True, exist_ok=True)
-        with pyi.open("w", encoding="utf-8") as f:
-            f.write(
-                """
-from typing import List, Literal
+        for m in s.functions:
+            if m.identifier == "new":
+                pass
+            f.write(f"    def {m.identifier}(self)->None: ...\n")
 
-"""
-            )
-            for d in v:
-                self._create_struct(f, d)
+    def _create_module(self, k: str, v: list[str]):
+        pyi_dir = self.output / (k.replace(".", "/"))
+        # bpy_types_init = bpy / "types.pyi"
+        pyi_dir.mkdir(parents=True, exist_ok=True)
+        pyi = pyi_dir / "__init__.py"
+        with pyi.open("w", encoding="utf-8") as f:
+            f.write("__all__ = [")
+            f.write(",".join([quote(x) for x in v]))
+            f.write("]\n")
+            for x in v:
+                f.write(f"from .{x} import {x}\n")
+
+        for x in v:
+            with (pyi_dir / f"{x}.pyi").open("w", encoding="utf-8") as f:
+                self._create_struct(f, x)
 
 
 class OperatorStubGenerator:
@@ -148,7 +201,7 @@ class OperatorStubGenerator:
         self.ops = ops
 
     def generate(self):
-        mod_map: dict[str, List[str]] = {}
+        mod_map: dict[str, list[str]] = {}
         for _, name in self.ops.keys():
             op = self.ops[("", name)]
             mod = mod_map.get(op.module_name)
@@ -169,15 +222,10 @@ class OperatorStubGenerator:
                 for op_name in v:
                     self._create_op(f, op_name)
 
-        def quote(src: str) -> str:
-            return '"' + src + '"'
-
         with (ops_dir / "__init__.py").open("w", encoding="utf-8") as f:
-            f.write(
-                f"""
-__all__ = [{','.join(quote(x) for x in mod_map.keys())}]
-"""
-            )
+            f.write("__all__ = [")
+            f.write(",".join(quote(x) for x in mod_map.keys()))
+            f.write("]\n")
             for x in mod_map.keys():
                 f.write(f"from . import {x}\n")
 
@@ -215,11 +263,41 @@ __all__ = [
     'context',
     'props',
 ]
-from . import data
-from . import context
 from . import types
+
+class View3DContext(types.Context):
+    active_object: types.Object
+    selected_ids: sequence[bpy.types.ID]
+
+data: types.BlendData
+context: View3DContext
 from . import props
 from . import ops # py
+"""
+        )
+
+    bpy_struct_pyi = bpy_dir / "types/bpy_struct.pyi"
+    bpy_struct_pyi.parent.mkdir(parents=True, exist_ok=True)
+    with bpy_struct_pyi.open("w", encoding="utf-8") as f:
+        f.write(
+            """import bpy
+
+class bpy_struct:
+    def keyframe_insert(self, data_path: str, index: int=- 1, frame: int=bpy.context.scene.frame_current, group: str='', options: set[str]=set())->bool: ...
+"""
+        )
+
+    bpy_prop_collection_pyi = bpy_dir / "types/bpy_prop_collection.pyi"
+    bpy_prop_collection_pyi.parent.mkdir(parents=True, exist_ok=True)
+    with bpy_prop_collection_pyi.open("w", encoding="utf-8") as f:
+        f.write(
+            """
+from typing import Generic, TypeVar
+
+T = TypeVar("T")
+
+class bpy_prop_collection(Generic[T]):
+    def __getitem__(self, key: int|str)->T:...
 """
         )
 
@@ -232,10 +310,10 @@ from . import ops # py
     # for parent, name in props:
     #     print(parent, name)
     # bpy/data.py => bpy.types.BlendData
-    # print(type(bpy.data), bpy.data)
-    for d in dir(bpy):
-        a = getattr(bpy, d)
-        print(d, type(a), a)
+    # for d in dir(bpy):
+    #     a = getattr(bpy, d)
+    #     print(d, type(a), a)
+    print(type(bpy.context), bpy.context)
     # print(bpy.props)
 
 
