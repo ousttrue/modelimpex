@@ -2,6 +2,7 @@
 generate pyi from rna_info
 """
 
+from functools import cmp_to_key
 import bpy  # type: ignore
 import rna_info  #  type: ignore
 
@@ -26,6 +27,52 @@ def quote(src: str) -> str:
     return '"' + src + '"'
 
 
+def param_str(x: Any) -> str:
+    if x.default:
+        return f"{x.identifier}: {type_str(x)}={x.default_str}"
+    else:
+        return f"{x.identifier}: {type_str(x)}"
+
+
+def type_str(v: Any):
+    match v.subtype:
+        case "MATRIX":
+            return "mathutils.Matrix"
+        case _:
+            pass
+
+    match v.type:
+        case "boolean":
+            return "bool"
+
+        case "string":
+            return "str"
+
+        case "enum":
+            return (
+                "Literal["
+                + ",".join([f"'{name}'" for name, _, _ in v.enum_items])
+                + "]"
+            )
+
+        case "pointer":
+            return v.fixed_type.identifier
+            # raise NotImplemented()
+
+        case "collection":
+            if v.collection_type:
+                return v.collection_type.identifier
+            else:
+                return f"bpy_prop_collection[{v.fixed_type.identifier}]"
+
+        case _:
+            match v.array_length:
+                case 0:
+                    return v.type
+                case _:
+                    return "tuple[" + ",".join([v.type] * v.array_length) + "]"
+
+
 class StructStubGenerator:
     def __init__(
         self,
@@ -36,6 +83,7 @@ class StructStubGenerator:
         self.dependencies = []
         self.structs = structs
         self.resolved: dict[str, set[str]] = {}
+        self.item_type: dict[str, str] = {}
 
     def generate(self):
         names: list[str] = []
@@ -82,6 +130,9 @@ class StructStubGenerator:
                         # if p.name == 'children':
                         #     pass
                         if p.collection_type:
+                            self.item_type[p.collection_type.identifier] = (
+                                p.fixed_type.identifier
+                            )
                             deps.add(p.collection_type.identifier)
                             for child in self._resolve_dependency(
                                 p.collection_type.identifier
@@ -96,40 +147,20 @@ class StructStubGenerator:
                     case _:
                         pass
 
+            for m in s.functions:
+                for a in m.args:
+                    if a.fixed_type:
+                        deps.add(a.fixed_type.identifier)
+                        for child in self._resolve_dependency(a.fixed_type.identifier):
+                            yield child
+
+                for r in m.return_values:
+                    if r.fixed_type:
+                        deps.add(r.fixed_type.identifier)
+                        for child in self._resolve_dependency(r.fixed_type.identifier):
+                            yield child
+
             yield name
-
-    def _type_str(self, v: Any):
-        match v.type:
-            case "boolean":
-                return "bool"
-
-            case "string":
-                return "str"
-
-            case "enum":
-                return (
-                    "Literal["
-                    + ",".join([f"'{name}'" for name, _, _ in v.enum_items])
-                    + "]"
-                )
-
-            case "pointer":
-                return v.fixed_type.identifier
-                # raise NotImplemented()
-
-            case "collection":
-                # return f"bpy_prop_collection[{v.fixed_type.identifier}]"
-                if v.collection_type:
-                    return v.collection_type.identifier
-                else:
-                    return v.fixed_type.identifier
-
-            case _:
-                match v.array_length:
-                    case 0:
-                        return v.type
-                    case _:
-                        return "tuple[" + ",".join([v.type] * v.array_length) + "]"
 
     def _create_struct(self, f: io.TextIOBase, name: str):
         s = self.structs[("", name)]
@@ -137,15 +168,16 @@ class StructStubGenerator:
         if name == "BlendDataObjects":
             pass
 
-        f.write("from typiing import Literal # type: ignore\n")
+        f.write("from typing import Literal # type: ignore\n")
+        f.write("import mathutils # type: ignore\n")
+        f.write(f"from .bpy_prop_collection import bpy_prop_collection\n")
 
         if s.base:
             base_struct = s.base.identifier
-        elif s.description.startswith("Collection of "):
-            item_type = name[:-1]
+        elif name in self.item_type:
+            item_type = self.item_type[name]
             f.write(f"from .{item_type} import {item_type}\n")
             base_struct = f"bpy_prop_collection[{item_type}]"
-            f.write(f"from .bpy_prop_collection import bpy_prop_collection\n")
         else:
             base_struct = "bpy_struct"
             f.write(f"from .bpy_struct import bpy_struct\n")
@@ -164,15 +196,30 @@ class {s.identifier}({base_struct}):
     ...
 """
         )
-        for _, v in enumerate(s.properties):
-            if v.identifier == "active_object":
-                pass
-            f.write(f"    {v.identifier}: {self._type_str(v)}\n")
+        for v in s.properties:
+            f.write(f"    {v.identifier}: {type_str(v)}\n")
+
+        def sort_arg(a: Any, b: Any) -> int:
+            if a.default and not b.default:
+                return 1
+            elif not a.default and b.default:
+                return -1
+            else:
+                return 0
 
         for m in s.functions:
-            if m.identifier == "new":
-                pass
-            f.write(f"    def {m.identifier}(self)->None: ...\n")
+            args = ["self"] + [
+                param_str(x) for x in sorted(m.args, key=cmp_to_key(sort_arg))
+            ]
+            return_values = [type_str(x) for x in m.return_values]
+            match len(return_values):
+                case 0:
+                    return_str = "None"
+                case 1:
+                    return_str = return_values[0]
+                case _:
+                    return_str = "tuple[" + ",".join(return_values) + "]"
+            f.write(f"    def {m.identifier}({','.join(args)})->{return_str}: ...\n")
 
     def _create_module(self, k: str, v: list[str]):
         pyi_dir = self.output / (k.replace(".", "/"))
@@ -217,8 +264,13 @@ class OperatorStubGenerator:
             with pyi.open("w", encoding="utf-8") as f:
                 f.write(
                     """
+from typing import Literal # type: ignore
 """
                 )
+                for op_name in v:
+                    for d in self._op_dependency(op_name):
+                        f.write(f"from bpy.types import {d}\n")
+
                 for op_name in v:
                     self._create_op(f, op_name)
 
@@ -229,11 +281,19 @@ class OperatorStubGenerator:
             for x in mod_map.keys():
                 f.write(f"from . import {x}\n")
 
+    def _op_dependency(self, name: str) -> Iterator[str]:
+        op = self.ops[("", name)]
+        for arg in op.args:
+            if arg.fixed_type:
+                yield arg.fixed_type.identifier
+
     def _create_op(self, f: io.TextIOBase, name: str):
         op = self.ops[("", name)]
+
+        args = [param_str(x) for x in op.args]
         f.write(
             f"""
-def {op.func_name}()->None:
+def {op.func_name}({','.join(args)})->None:
     ...
 """
         )
@@ -265,10 +325,12 @@ __all__ = [
 ]
 from . import types
 
+
 class View3DContext(types.Context):
     active_object: types.Object
-    selected_ids: sequence[bpy.types.ID]
+    selected_ids: list[types.ID]
 
+    
 data: types.BlendData
 context: View3DContext
 from . import props
@@ -315,6 +377,8 @@ class bpy_prop_collection(Generic[T]):
     #     print(d, type(a), a)
     print(type(bpy.context), bpy.context)
     # print(bpy.props)
+
+    print(bpy.types.TOPBAR_MT_file_export)
 
 
 if __name__ == "__main__":

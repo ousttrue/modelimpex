@@ -1,7 +1,7 @@
 import bpy
 from bpy_extras.io_utils import ExportHelper
 from bpy.props import FloatVectorProperty, StringProperty
-
+import bl_ui.space_topbar
 
 from .. import blender_scene
 from .. import gltf
@@ -44,5 +44,8 @@ class Exporter(bpy.types.Operator, ExportHelper):
         return {"FINISHED"}
 
 
-def menu(self, context):
+def menu(
+    self: bl_ui.space_topbar.TOPBAR_MT_file_export, context: bpy.types.Context
+) -> None:
+    print(type(self), self)
     self.layout.operator(Exporter.bl_idname, text=f"humanoidio (.glb;.vrm)")

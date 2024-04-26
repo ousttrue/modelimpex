@@ -5,6 +5,7 @@ logger = getLogger(__name__)
 
 import bpy
 from bpy_extras.io_utils import ImportHelper
+import bl_ui.space_topbar
 import pathlib
 from .. import gltf
 from .. import blender_scene
@@ -15,7 +16,7 @@ class Importer(bpy.types.Operator, ImportHelper):
     bl_idname = "humanoidio.importer"
     bl_label = "humanoidio Importer"
 
-    def execute(self, context: bpy.types.Context):
+    def execute(self, context: bpy.types.Context) -> set[str]:
         logger.debug("#### start ####")
         # read file
         path = pathlib.Path(self.filepath).absolute()  # type: ignore
@@ -50,5 +51,5 @@ class Importer(bpy.types.Operator, ImportHelper):
             return {"FINISHED"}
 
 
-def menu(self, context: bpy.types.Context):
+def menu(self: bl_ui.space_topbar.TOPBAR_MT_file_export, context: bpy.types.Context):
     self.layout.operator(Importer.bl_idname, text=f"humanoidio (.gltf;.glb;.vrm;.pmx)")

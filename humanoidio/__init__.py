@@ -8,8 +8,9 @@ bl_info = {
 import bpy
 from .ops.importer import Importer, menu as import_menu
 from .ops.exporter import Exporter, menu as export_menu
+from .ops.exporter_yup import ExportYUP, menu_func as export_yup_menu
 
-CLASSES = [Importer, Exporter]
+CLASSES = [Importer, Exporter, ExportYUP]
 
 
 def register():
@@ -17,6 +18,7 @@ def register():
         bpy.utils.register_class(c)
     bpy.types.TOPBAR_MT_file_import.append(import_menu)  # type: ignore
     bpy.types.TOPBAR_MT_file_export.append(export_menu)  # type: ignore
+    bpy.types.TOPBAR_MT_file_export.append(export_yup_menu)  # type: ignore
 
 
 def unregister():
@@ -24,3 +26,4 @@ def unregister():
         bpy.utils.unregister_class(c)
     bpy.types.TOPBAR_MT_file_import.remove(import_menu)  # type: ignore
     bpy.types.TOPBAR_MT_file_export.remove(export_menu)  # type: ignore
+    bpy.types.TOPBAR_MT_file_export.remove(export_yup_menu)  # type: ignore
