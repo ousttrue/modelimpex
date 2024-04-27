@@ -182,8 +182,8 @@ class MeshStore:
             for loop_index in tri.loops:
                 # dst = vertices[loop_index]
                 v = mesh.vertices[mesh.loops[loop_index].vertex_index]
-                self.positions[loop_index] = Vector3_from_meshVertex(v.co)
-                if tri.normal:
+                self.positions[loop_index] = Vector3_from_meshVertex(v.co)                
+                if False and tri.normal:
                     self.normals[loop_index] = Vector3_from_meshVertex(tri.normal)
                 else:
                     self.normals[loop_index] = Vector3_from_meshVertex(v.normal)

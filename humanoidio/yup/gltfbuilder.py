@@ -1,4 +1,5 @@
-from typing import Iterator, Any, cast
+from typing import Iterator, Any, cast, Literal
+from contextlib import contextmanager
 
 import bpy
 import mathutils  # type: ignore
@@ -38,6 +39,64 @@ class Skin:
         self.object = o
 
 
+@contextmanager
+def tmp_active(obj: bpy.types.Object | None = None):
+    active = bpy.context.active_object
+    bpy.context.view_layer.objects.active = obj
+    try:
+        yield
+    finally:
+        bpy.context.view_layer.objects.active = active
+
+
+MODE_MAP: dict[str, str] = {
+    "EDIT_MESH": "EDIT",
+    "EDIT_CURVE": "EDIT",
+    "EDIT_CURVES": "EDIT",
+    "EDIT_SURFACE": "EDIT",
+    "EDIT_TEXT": "EDIT",
+    "EDIT_ARMATURE": "EDIT",
+    "EDIT_METABALL": "EDIT",
+    "EDIT_LATTICE": "EDIT",
+    "EDIT_GREASE_PENCIL": "EDIT",
+    "EDIT_POINT_CLOUD": "EDIT",
+    "PAINT_WEIGHT": "WEIGHT_PAINT",
+    "PAINT_VERTEX": "VERTEX_PAINT",
+    "PAINT_TEXTURE": "TEXTURE_PAINT",
+    "PARTICLE": "PARTICLE_EDIT",
+}
+
+
+@contextmanager
+def tmp_mode(
+    mode: Literal[
+        "OBJECT",
+        "EDIT",
+        "POSE",
+        "SCULPT",
+        "VERTEX_PAINT",
+        "WEIGHT_PAINT",
+        "TEXTURE_PAINT",
+        "PARTICLE_EDIT",
+        "EDIT_GPENCIL",
+        "SCULPT_GPENCIL",
+        "PAINT_GPENCIL",
+        "WEIGHT_GPENCIL",
+        "VERTEX_GPENCIL",
+        "SCULPT_CURVES",
+        "PAINT_GREASE_PENCIL",
+    ],
+    obj: bpy.types.Object | None = None,
+):
+    with tmp_active(obj):
+        last_mode = cast(str, bpy.context.mode)
+        bpy.ops.object.mode_set(mode=mode)
+        try:
+            yield
+        finally:
+            bpy.ops.object.mode_set(mode=MODE_MAP.get(last_mode, last_mode))  # type: ignore
+
+
 class GLTFBuilder:
     def __init__(self):
         self.gltf = gltf.GLTF()
@@ -47,10 +106,36 @@ class GLTFBuilder:
         self.root_nodes: list[Node] = []
         self.skins: list[Skin] = []
 
+        self.tmp_objects: list[bpy.types.Object] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):  # type: ignore
+        for x in self.tmp_objects:
+            mesh = x.data
+            bpy.context.scene.collection.objects.unlink(x)
+            bpy.data.objects.remove(x)
+            if isinstance(mesh, bpy.types.Mesh):
+                bpy.data.meshes.remove(mesh)
+
     def export_objects(self, objects: list[bpy.types.Object]):
         for o in objects:
             root_node = self._export_object(None, o)
             self.root_nodes.append(root_node)
+
+    def _create_copy(self, o: bpy.types.Object) -> tuple[bpy.types.Object, bpy.types.Mesh]:
+        new_obj = cast(bpy.types.Object, o.copy())
+        mesh = cast(bpy.types.Mesh, o.data.copy())
+        new_obj.data = mesh
+        bpy.data.scenes[0].collection.objects.link(new_obj)
+
+        self.tmp_objects.append(new_obj)
+
+        with tmp_mode("EDIT", new_obj):
+            bpy.ops.mesh.sort_elements(type="MATERIAL", elements={"FACE"})
+
+        return new_obj, mesh
 
     def _export_object(
         self, parent: Node | None, o: bpy.types.Object, indent: str = ""
@@ -60,12 +145,7 @@ class GLTFBuilder:
 
         # only mesh
         if o.type == "MESH":
-
-            # copy
-            new_obj = cast(bpy.types.Object, o.copy())
-            mesh = cast(bpy.types.Mesh, o.data.copy())
-            new_obj.data = mesh
-            bpy.data.scenes[0].collection.objects.link(new_obj)
+            new_obj, mesh = self._create_copy(o)
 
             # apply modifiers
             for m in new_obj.modifiers:

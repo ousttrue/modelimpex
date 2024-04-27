@@ -3,6 +3,7 @@ import bpy
 import struct
 from .gltfbuilder import GLTFBuilder
 from .to_gltf import to_gltf
+from .gltf import GLTF
 
 
 def get_objects(selected_only: bool) -> list[bpy.types.Object]:
@@ -12,32 +13,36 @@ def get_objects(selected_only: bool) -> list[bpy.types.Object]:
         return [o for o in bpy.data.scenes[0].objects if not o.parent]
 
 
-def export(path: pathlib.Path, selected_only: bool):
+def to_bytes(path: pathlib.Path, objects: list[bpy.types.Object]) -> tuple[GLTF, bytes]:
+    ext = path.suffix.lower()
 
+    with GLTFBuilder() as builder:
+        builder.export_objects(objects)
+
+        #
+        # export
+        #
+        bin_path = path.parent / (path.stem + ".bin")
+        gltf, bin = to_gltf(builder, path, bin_path if ext != ".glb" else None)
+        return gltf, bytes(bin)
+
+
+def export(path: pathlib.Path, selected_only: bool):
     # object mode
     if bpy.context.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT", toggle=False)
 
-    #
-    # gather items
-    #
-    builder = GLTFBuilder()
     objects = get_objects(selected_only)
-    builder.export_objects(objects)
 
-    ext = path.suffix.lower()
-
-    #
-    # export
-    #
-    bin_path = path.parent / (path.stem + ".bin")
-    gltf, bin_bytes = to_gltf(builder, path, bin_path if ext != ".glb" else None)
+    gltf, bin_bytes = to_bytes(path, objects)
 
     #
     # write
     #
     json_bytes = gltf.to_json().encode("utf-8")
 
+    ext = path.suffix.lower()
+    bin_path = path.parent / (path.stem + ".bin")
     if ext == ".gltf":
         with path.open("wb") as f:
             f.write(json_bytes)
