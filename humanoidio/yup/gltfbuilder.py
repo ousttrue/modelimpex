@@ -1,4 +1,4 @@
-from typing import Iterator, Any
+from typing import Iterator, Any, cast
 
 import bpy
 import mathutils  # type: ignore
@@ -62,11 +62,10 @@ class GLTFBuilder:
         if o.type == "MESH":
 
             # copy
-            new_obj = o.copy()
-            new_obj.data = o.data.copy()
+            new_obj = cast(bpy.types.Object, o.copy())
+            mesh = cast(bpy.types.Mesh, o.data.copy())
+            new_obj.data = mesh
             bpy.data.scenes[0].collection.objects.link(new_obj)
-
-            mesh = new_obj.data
 
             # apply modifiers
             for m in new_obj.modifiers:
@@ -75,8 +74,9 @@ class GLTFBuilder:
                     node.skin = self._get_or_create_skin(node, m.object)
 
             # export
-            bone_names = (
-                [b.name for b in node.skin.object.data.bones] if node.skin else []
+            bone_names = cast(
+                list[str],
+                [b.name for b in node.skin.object.data.bones] if node.skin else [],
             )
             node.mesh = self._export_mesh(mesh, o.vertex_groups, bone_names)
 
@@ -123,22 +123,11 @@ class GLTFBuilder:
     def _export_mesh(
         self,
         mesh: bpy.types.Mesh,
-        vertex_groups: list[bpy.types.VertexGroup],
+        vertex_groups: bpy.types.VertexGroups,
         bone_names: list[str],
     ) -> MeshStore:
 
-        mesh.calc_loop_triangles()
-        uv_layer = mesh.uv_layers and mesh.uv_layers[0]
-
-        store = MeshStore(
-            mesh.name, mesh.vertices, mesh.materials, vertex_groups, bone_names
-        )
-        for tri in mesh.loop_triangles:
-            submesh = store.get_or_create_submesh(tri.material_index)
-            store.add_face(tri, uv_layer)
-            for loop_index in tri.loops:
-                submesh.indices.append(loop_index)
-
+        store = MeshStore(mesh, vertex_groups, bone_names)
         self.mesh_stores.append(store)
         return store
 

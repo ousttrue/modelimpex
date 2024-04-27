@@ -212,6 +212,8 @@ class {s.identifier}({base_struct}):
 """
         )
         for v in s.properties:
+            if v.identifier=='pixels':
+                pass
             f.write(f"    {v.identifier}: {type_str(v)}\n")
 
         # def sort_arg(a: Any, b: Any) -> int:
@@ -491,12 +493,15 @@ class bpy_struct:
     with bpy_prop_collection_pyi.open("w", encoding="utf-8") as f:
         f.write(
             """
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, Iterator
 
 T = TypeVar("T")
 
 class bpy_prop_collection(Generic[T]):
+    def __len__(self)->int:...
     def __getitem__(self, key: int|str)->T:...
+    def get(self, key: int|str, default:T|None=None)->T|None:...
+    def __iter__(self)->Iterator[T]:...
     def remove(self, item: T)->None:...
 """
         )
