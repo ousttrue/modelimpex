@@ -15,7 +15,7 @@ CLASSES = [Importer, Exporter, ExportYUP]
 
 def register():
     for c in CLASSES:
-        bpy.utils.register_class(c)
+        bpy.utils.register_class(c) # type: ignore
     bpy.types.TOPBAR_MT_file_import.append(import_menu)  # type: ignore
     bpy.types.TOPBAR_MT_file_export.append(export_menu)  # type: ignore
     bpy.types.TOPBAR_MT_file_export.append(export_yup_menu)  # type: ignore
@@ -23,7 +23,7 @@ def register():
 
 def unregister():
     for c in reversed(CLASSES):
-        bpy.utils.unregister_class(c)
+        bpy.utils.unregister_class(c) # type: ignore
     bpy.types.TOPBAR_MT_file_import.remove(import_menu)  # type: ignore
     bpy.types.TOPBAR_MT_file_export.remove(export_menu)  # type: ignore
     bpy.types.TOPBAR_MT_file_export.remove(export_yup_menu)  # type: ignore

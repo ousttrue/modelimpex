@@ -1,13 +1,14 @@
+from typing import cast
 import bpy
 from bpy_extras.io_utils import ExportHelper
-from bpy.props import StringProperty, BoolProperty
+from bpy.props import StringProperty, BoolProperty  # type: ignore
 import bl_ui.space_topbar
 
 
 class ExportYUP(bpy.types.Operator, ExportHelper):
     """Export selection to YUP"""
 
-    bl_idname = "export_scene.yup"
+    bl_idname = "humanoidio.export_yup"
     bl_label = "Export YUP GLTF"
 
     filepath = StringProperty(subtype="FILE_PATH")
@@ -35,7 +36,7 @@ class ExportYUP(bpy.types.Operator, ExportHelper):
 
         from .. import yup
 
-        yup.export(path, self.selectedonly)
+        yup.export(path, cast(bool, self.selectedonly))
 
         return {"FINISHED"}
 

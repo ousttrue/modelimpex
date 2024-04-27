@@ -3,8 +3,14 @@ generate pyi from rna_info
 """
 
 from functools import cmp_to_key
+import functools
+import re
+import sys
 import bpy  # type: ignore
 import rna_info  #  type: ignore
+from _bpy import rna_enum_items_static  #  type: ignore
+
+rna_enum_dict = rna_enum_items_static()  #  type: ignore
 
 from typing import Any, Iterator
 import io
@@ -28,8 +34,11 @@ def quote(src: str) -> str:
 
 
 def param_str(x: Any) -> str:
-    if x.default:
-        return f"{x.identifier}: {type_str(x)}={x.default_str}"
+    if x.default_str:
+        if x.default_str == "None":
+            return f"{x.identifier}: {type_str(x)}|None=None"
+        else:
+            return f"{x.identifier}: {type_str(x)}={x.default_str}"
     else:
         return f"{x.identifier}: {type_str(x)}"
 
@@ -49,11 +58,14 @@ def type_str(v: Any):
             return "str"
 
         case "enum":
-            return (
-                "Literal["
-                + ",".join([f"'{name}'" for name, _, _ in v.enum_items])
-                + "]"
-            )
+            if len(v.enum_items) == 0:
+                return "str"
+            else:
+                return (
+                    "Literal["
+                    + ",".join([f"'{name}'" for name, _, _ in v.enum_items])
+                    + "]"
+                )
 
         case "pointer":
             return v.fixed_type.identifier
@@ -84,6 +96,7 @@ class StructStubGenerator:
         self.structs = structs
         self.resolved: dict[str, set[str]] = {}
         self.item_type: dict[str, str] = {}
+        self.properties: list[str] = []
 
     def generate(self):
         names: list[str] = []
@@ -174,6 +187,8 @@ class StructStubGenerator:
 
         if s.base:
             base_struct = s.base.identifier
+            if base_struct == "Property":
+                self.properties.append(s.identifier)
         elif name in self.item_type:
             item_type = self.item_type[name]
             f.write(f"from .{item_type} import {item_type}\n")
@@ -199,18 +214,16 @@ class {s.identifier}({base_struct}):
         for v in s.properties:
             f.write(f"    {v.identifier}: {type_str(v)}\n")
 
-        def sort_arg(a: Any, b: Any) -> int:
-            if a.default and not b.default:
-                return 1
-            elif not a.default and b.default:
-                return -1
-            else:
-                return 0
+        # def sort_arg(a: Any, b: Any) -> int:
+        #     if a.default and not b.default:
+        #         return 1
+        #     elif not a.default and b.default:
+        #         return -1
+        #     else:
+        #         return 0
 
         for m in s.functions:
-            args = ["self"] + [
-                param_str(x) for x in sorted(m.args, key=cmp_to_key(sort_arg))
-            ]
+            args = ["self"] + [param_str(x) for x in m.args]
             return_values = [type_str(x) for x in m.return_values]
             match len(return_values):
                 case 0:
@@ -227,9 +240,10 @@ class {s.identifier}({base_struct}):
         pyi_dir.mkdir(parents=True, exist_ok=True)
         pyi = pyi_dir / "__init__.py"
         with pyi.open("w", encoding="utf-8") as f:
-            f.write("__all__ = [")
+            f.write("__all__ = ['bpy_prop_collection'. ")
             f.write(",".join([quote(x) for x in v]))
             f.write("]\n")
+            f.write(f"from .bpy_prop_collection import bpy_prop_collection\n")
             for x in v:
                 f.write(f"from .{x} import {x}\n")
 
@@ -299,6 +313,71 @@ def {op.func_name}({','.join(args)})->None:
         )
 
 
+def write_property_function(f: io.IOBase, name: str, doc: str) -> None:
+    lines = doc.splitlines()
+
+    l = lines.pop(0)
+    m = re.match(r"^\.\. function:: (\w+)\((.*)\)$", l)
+    assert m
+    assert m.group(1) == name
+
+    def ret_kv(*_: Any, **kv: Any) -> dict[str, Any]:
+        return kv
+
+    # sp = [x.split("=", 1) for x in .split(",")]
+    # print(l, sp)
+    # defaults: dict[str, str] = {k.strip(): v.strip() for k, v in sp}
+    defaults = eval(
+        f"ret_kv({m.group(2)})", {"items": None, "sys": sys}, {"ret_kv": ret_kv}
+    )
+
+    type_map = {
+        "string": "str",
+        "int": "int",
+        "float": "float",
+        "set": "set[str]",
+        "function": "Callable[[], None]|None",
+        "sequence": "list[Any]",
+        "int or int sequence": "int|list[int]",
+        "class": "type|None",
+        "sequence of string tuples or a function": "list[tuple[str]]|Callable[[], None]|None",
+        "string, integer or set": "str|int|set[str]|None",
+    }
+
+    def value_str(src: str) -> str:
+        if src[0] == "(" and src[-1] == ")":
+            return "[" + src[1:-1] + "]"
+
+        return src
+
+    # def arg_order(a: str, b: str) -> int:
+    #     if "=" in a and "=" not in b:
+    #         return 1
+    #     elif "=" not in a and "=" in b:
+    #         return -1
+    #     return 0
+
+    args: list[str] = []
+    for l in lines:
+        m = re.match(r":type (\w+):(.*)", l.lstrip())
+        if m:
+            arg_name = m.group(1)
+            if arg_name == "translation_context":
+                if name == "BoolProperty":
+                    # ?
+                    args.append("default:bool=False")
+                continue
+            arg_type = m.group(2).strip()
+            if arg_name in defaults:
+                args.append(
+                    f"{arg_name}:{type_map[arg_type]}={value_str(repr(defaults[arg_name]))}"
+                )
+            else:
+                args.append(f"{arg_name}:{type_map[arg_type]}")
+
+    f.write(f"def {name}({','.join(args)})->types.{name}:...\n")
+
+
 def main():
     logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser(
@@ -316,6 +395,9 @@ def main():
     with bpy_init.open("w", encoding="utf-8") as f:
         f.write(
             """
+from typing import Any
+from . import types
+
 __all__ = [
     'types',
     'data',
@@ -323,16 +405,71 @@ __all__ = [
     'context',
     'props',
 ]
-from . import types
 
 
-class View3DContext(types.Context):
+class ScreenContext(types.Context):
+    scene: types.Scene
+    view_layer: types.ViewLayer
+    visible_objects: list[types.Object]
+    selectable_objects: list[types.Object]
+    selected_objects: list[types.Object]
+    editable_objects: list[types.Object]
+    selected_editable_objects: list[types.Object]
+    objects_in_mode: list[types.Object]
+    objects_in_mode_unique_data: list[types.Object]
+    visible_bones: list[types.EditBone]
+    editable_bones: list[types.EditBone]
+    selected_bones: list[types.EditBone]
+    selected_editable_bones: list[types.EditBone]
+    visible_pose_bones: list[types.PoseBone]
+    selected_pose_bones: list[types.PoseBone]
+    selected_pose_bones_from_active_object: list[types.PoseBone]
+    active_bone: types.EditBone
+    active_pose_bone: types.PoseBone
     active_object: types.Object
-    selected_ids: list[types.ID]
+    object: types.Object
+    edit_object: types.Object
+    sculpt_object: types.Object
+    vertex_paint_object: types.Object
+    weight_paint_object: types.Object
+    image_paint_object: types.Object
+    particle_edit_object: types.Object
+    pose_object: types.Object
+    active_sequence_strip: types.Sequence
+    sequences: list[types.Sequence]
+    selected_sequences: list[types.Sequence]
+    selected_editable_sequences: list[types.Sequence]
+    active_nla_track: types.NlaTrack
+    active_nla_strip: types.NlaStrip
+    selected_nla_strips: list[types.NlaStrip]
+    selected_movieclip_tracks: list[types.MovieTrackingTrack]
+    gpencil_data: types.GreasePencil
+    gpencil_data_owner: types.ID
+    annotation_data: types.GreasePencil
+    annotation_data_owner: types.ID
+    visible_gpencil_layers: list[types.GPencilLayer]
+    editable_gpencil_layers: list[types.GPencilLayer]
+    editable_gpencil_strokes: list[types.GPencilStroke]
+    active_gpencil_layer: list[types.GPencilLayer]
+    active_gpencil_frame: list[types.GreasePencilLayer]
+    active_annotation_layer: types.GPencilLayer
+    active_operator: types.Operator
+    active_action: types.Action
+    selected_visible_actions: list[types.Action]
+    selected_editable_actions: list[types.Action]
+    visible_fcurves: list[types.FCurve]
+    editable_fcurves: list[types.FCurve]
+    selected_visible_fcurves: list[types.FCurve]
+    selected_editable_fcurves: list[types.FCurve]
+    active_editable_fcurve: types.FCurve
+    selected_editable_keyframes: list[types.Keyframe]
+    ui_list: types.UIList
+    property: tuple[Any, str, int]
+    asset_library_reference: types.AssetLibraryReference
 
     
 data: types.BlendData
-context: View3DContext
+context: ScreenContext
 from . import props
 from . import ops # py
 """
@@ -360,6 +497,7 @@ T = TypeVar("T")
 
 class bpy_prop_collection(Generic[T]):
     def __getitem__(self, key: int|str)->T:...
+    def remove(self, item: T)->None:...
 """
         )
 
@@ -369,16 +507,17 @@ class bpy_prop_collection(Generic[T]):
     og = OperatorStubGenerator(args.output, ops)  # type: ignore
     og.generate()
 
-    # for parent, name in props:
-    #     print(parent, name)
-    # bpy/data.py => bpy.types.BlendData
-    # for d in dir(bpy):
-    #     a = getattr(bpy, d)
-    #     print(d, type(a), a)
-    print(type(bpy.context), bpy.context)
-    # print(bpy.props)
-
-    print(bpy.types.TOPBAR_MT_file_export)
+    bpy_props_pyi = bpy_dir / "props.pyi"
+    with bpy_props_pyi.open("w", encoding="utf-8") as f:
+        f.write("from typing import Any, Callable\n")
+        f.write("from . import types\n")
+        for d in dir(bpy.props):
+            if d == "RemoveProperty":
+                continue
+            if d.endswith("Property"):
+                prop = getattr(bpy.props, d)
+                print(prop)
+                write_property_function(f, d, prop.__doc__)
 
 
 if __name__ == "__main__":

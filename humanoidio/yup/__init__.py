@@ -6,7 +6,7 @@ from .to_gltf import to_gltf
 
 
 def get_objects(selected_only: bool) -> list[bpy.types.Object]:
-    if selected_only:
+    if selected_only and bpy.context.selected_objects:
         return bpy.context.selected_objects
     else:
         return [o for o in bpy.data.scenes[0].objects if not o.parent]

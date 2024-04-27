@@ -47,5 +47,4 @@ class Exporter(bpy.types.Operator, ExportHelper):
 def menu(
     self: bl_ui.space_topbar.TOPBAR_MT_file_export, context: bpy.types.Context
 ) -> None:
-    print(type(self), self)
     self.layout.operator(Exporter.bl_idname, text=f"humanoidio (.glb;.vrm)")

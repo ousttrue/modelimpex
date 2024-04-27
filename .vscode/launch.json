@@ -26,6 +26,17 @@
             },
             "console": "integratedTerminal"
         },
+        {
+            "name": "yup",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests/test_yup.py",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "console": "integratedTerminal"
+        },
         // typings
         {
             "name": "rnastubgen",
