@@ -1,11 +1,7 @@
-from logging import getLogger
-
-logger = getLogger(__name__)
-
 import math
-from typing import Dict, Optional, List, Callable
+from typing import Callable, Iterator
 import bpy
-import mathutils
+import mathutils  # type: ignore
 from .. import gltf
 from .mesh import create_mesh
 from .armature import connect_bones
@@ -48,34 +44,71 @@ class Importer:
     def __init__(self, collection: bpy.types.Collection, conversion: gltf.Conversion):
         self.collection = collection
         self.conversion = conversion
-        self.obj_map: Dict[gltf.Node, bpy.types.Object] = {}
-        self.mesh_map: Dict[gltf.Mesh, bpy.types.Mesh] = {}
-        self.skin_map: Dict[gltf.Skin, bpy.types.Object] = {}
+        self.obj_map: dict[gltf.Node, bpy.types.Object] = {}
+        self.mesh_map: dict[gltf.Mesh, bpy.types.Mesh] = {}
+        self.skin_map: dict[gltf.Skin, bpy.types.Object] = {}
+        self.materials: list[bpy.types.Material] = []
 
-    def _create_object(self, node: gltf.Node) -> None:
-        """
-        Node から bpy.types.Object を作る
-        """
-        # create object
+    def load(self, loader: gltf.Loader):
+        # create materials
+        for m in loader.materials:
+            material = bpy.data.materials.new(m.name)
+            # todo unlit and color texture
+            self.materials.append(material)
+
+        # create object for each node
+        roots: list[bpy.types.Object] = []
+        for root in loader.roots:
+            bl_obj = self._create_tree(root)
+            roots.append(bl_obj)
+
+        # apply conversion
+        self._apply_conversion(roots)
+
+        if loader.vrm:
+            # single skin humanoid model
+            pass
+        else:
+            # non humanoid generic scene
+            pass
+
+        bl_humanoid_obj = self._create_humanoid(loader.roots)
+        for root in roots:
+            root.parent = bl_humanoid_obj
+
+        bpy.ops.object.select_all(action="DESELECT")
+        for n, o in self.obj_map.items():
+            if o.type == "MESH" and n.skin:
+                self._setup_skinning(n)
+
+        # remove empties
+        for root in loader.roots:
+            self._remove_empty(root)
+
+    def _create_object(self, node: gltf.Node) -> bpy.types.Object:
         if isinstance(node.mesh, gltf.Mesh):
             bl_mesh = self.mesh_map.get(node.mesh)
             is_create = False
             if not bl_mesh:
                 is_create = True
-                logger.debug(f"create: {node.mesh.name}")
+                print(f"create: {node.mesh.name}")
 
                 # Create an empty mesh and the object.
                 name = node.mesh.name
                 bl_mesh = bpy.data.meshes.new(name + "_mesh")
                 self.mesh_map[node.mesh] = bl_mesh
 
-            bl_obj: bpy.types.Object = bpy.data.objects.new(node.name, bl_mesh)
+            bl_obj = bpy.data.objects.new(node.name, bl_mesh)
             self.collection.objects.link(bl_obj)
             if is_create:
                 if node.skin:
                     for joint in node.skin.joints:
                         bg = bl_obj.vertex_groups.new(name=joint.name)
-                        bg.add([0], 1.0, "ADD")
+                        bg.add((0,), 1.0, "ADD")
+
+                for submesh in node.mesh.submeshes:
+                    bl_mesh.materials.append(self.materials[submesh.material_index])
+
                 create_mesh(bl_mesh, node.mesh)
         else:
             # empty
@@ -87,7 +120,7 @@ class Importer:
         self.obj_map[node] = bl_obj
         # parent
         if node.parent:
-            bl_obj.parent = self.obj_map.get(node.parent)
+            bl_obj.parent = self.obj_map[node.parent]
 
         # TRS
         bl_obj.location = node.translation
@@ -97,14 +130,14 @@ class Importer:
         return bl_obj
 
     def _create_tree(
-        self, node: gltf.Node, parent: Optional[gltf.Node] = None, level: int = 0
-    ):
+        self, node: gltf.Node, parent: gltf.Node | None = None, level: int = 0
+    ) -> bpy.types.Object:
         bl_obj = self._create_object(node)
         for child in node.children:
             self._create_tree(child, node, level + 1)
         return bl_obj
 
-    def _create_humanoid(self, roots: List[gltf.Node]) -> bpy.types.Object:
+    def _create_humanoid(self, roots: list[gltf.Node]) -> bpy.types.Object:
         """
         Armature for Humanoid
         """
@@ -125,7 +158,7 @@ class Importer:
         bpy.ops.object.mode_set(mode="EDIT", toggle=False)
 
         # 1st pass: create bones
-        bones: Dict[gltf.Node, bpy.types.EditBone] = {}
+        bones: dict[gltf.Node, bpy.types.EditBone] = {}
         for skin in skins:
             for node in skin.joints:
                 if node in bones:
@@ -143,7 +176,7 @@ class Importer:
         # 2nd pass: tail, connect
         connect_bones(bones)
 
-        humaniod_map: Dict[gltf.vrm.HumanoidBones, gltf.Node] = {}
+        humaniod_map: dict[gltf.vrm.HumanoidBones, gltf.Node] = {}
         for k, v in bones.items():
             if k.humanoid_bone:
                 humaniod_map[k.humanoid_bone] = k
@@ -217,10 +250,13 @@ class Importer:
         if not isinstance(bl_object.data, bpy.types.Mesh):
             return
 
-        logger.debug(f"skinning: {bl_object}")
+        print(f"skinning: {bl_object}")
         vert_idx = [0]
 
-        def set_skinning(j, w):
+        def set_skinning(
+            j: Iterator[tuple[int, int, int, int]],
+            w: Iterator[tuple[float, float, float, float]],
+        ):
             while True:
                 try:
                     j0, j1, j2, j3 = next(j)
@@ -235,20 +271,17 @@ class Importer:
                 except StopIteration:
                     break
 
-        if mesh_node.mesh.vertices:
-            j = mesh_node.mesh.vertices.JOINTS_0()
-            w = mesh_node.mesh.vertices.WEIGHTS_0()
+        for sm in mesh_node.mesh.submeshes:
+            assert sm.vertices.JOINTS_0
+            j = sm.vertices.JOINTS_0()
+            assert sm.vertices.WEIGHTS_0
+            w = sm.vertices.WEIGHTS_0()
             set_skinning(j, w)
-        else:
-            for sm in mesh_node.mesh.submeshes:
-                j = sm.vertices.JOINTS_0()
-                w = sm.vertices.WEIGHTS_0()
-                set_skinning(j, w)
 
         modifier = bl_object.modifiers.new(name="Armature", type="ARMATURE")
         modifier.object = self.skin_map.get(skin)
 
-    def _apply_conversion(self, roots: List[bpy.types.Object]):
+    def _apply_conversion(self, roots: list[bpy.types.Object]):
         empty = bpy.data.objects.new("empty", None)
         self.collection.objects.link(empty)
         for bl_obj in roots:
@@ -283,33 +316,3 @@ class Importer:
         bpy.data.objects.remove(bl_obj, do_unlink=True)
         if node.parent:
             node.parent.children.remove(node)
-
-    def load(self, loader: gltf.Loader):
-        # create object for each node
-        roots = []
-        for root in loader.roots:
-            bl_obj = self._create_tree(root)
-            roots.append(bl_obj)
-
-        # apply conversion
-        self._apply_conversion(roots)
-
-        if loader.vrm:
-            # single skin humanoid model
-            pass
-        else:
-            # non humanoid generic scene
-            pass
-
-        bl_humanoid_obj = self._create_humanoid(loader.roots)
-        for root in roots:
-            root.parent = bl_humanoid_obj
-
-        bpy.ops.object.select_all(action="DESELECT")
-        for n, o in self.obj_map.items():
-            if o.type == "MESH" and n.skin:
-                self._setup_skinning(n)
-
-        # remove empties
-        for root in loader.roots:
-            self._remove_empty(root)

@@ -3,7 +3,6 @@ from logging import getLogger
 logger = getLogger(__name__)
 
 import pathlib
-from typing import Tuple, List, Union
 import json
 from .mesh import Submesh, VertexBuffer, Mesh
 from .glb import get_glb_chunks
@@ -12,6 +11,7 @@ from .coordinate import Coordinate, Conversion
 from .node import Node, Skin
 from .humanoid import HumanoidBones
 from . import gltf_json_type
+from .material import Material
 
 
 class Vrm0:
@@ -26,10 +26,11 @@ class Vrm1:
 
 class Loader:
     def __init__(self):
-        self.meshes: List[Mesh] = []
-        self.nodes: List[Node] = []
-        self.roots: List[Node] = []
-        self.vrm: Union[Vrm0, Vrm1, None] = None
+        self.meshes: list[Mesh] = []
+        self.nodes: list[Node] = []
+        self.roots: list[Node] = []
+        self.vrm: Vrm0 | Vrm1 | None = None
+        self.materials: list[Material] = []
 
     def _load_mesh(self, data: GltfAccessor, i: int, m: gltf_json_type.Mesh):
         mesh = Mesh(m.get("name", f"mesh{i}"))
@@ -123,7 +124,7 @@ class Loader:
                     pass
 
 
-def load_glb(path: pathlib.Path, dst: Coordinate) -> Tuple[Loader, Conversion]:
+def load_glb(path: pathlib.Path, dst: Coordinate) -> tuple[Loader, Conversion]:
     json_chunk, bin_chunk = get_glb_chunks(path.read_bytes())
     gltf = json.loads(json_chunk)
 
@@ -136,11 +137,11 @@ def load_glb(path: pathlib.Path, dst: Coordinate) -> Tuple[Loader, Conversion]:
     return loader, Conversion(src, dst)
 
 
-def load_gltf(src: pathlib.Path, conv: Coordinate) -> Tuple[Loader, Conversion]:
+def load_gltf(src: pathlib.Path, conv: Coordinate) -> tuple[Loader, Conversion]:
     raise NotImplementedError()
 
 
-def load(src: pathlib.Path, conv: Coordinate) -> Tuple[Loader, Conversion]:
+def load(src: pathlib.Path, conv: Coordinate) -> tuple[Loader, Conversion]:
     if src.suffix == ".gltf":
         return load_gltf(src, conv)
     else:

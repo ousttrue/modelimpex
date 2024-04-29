@@ -1,12 +1,8 @@
 from typing import Iterator
-import logging
 import io
 from .pymeshio.pmd import pmd_format as pmd_model
 from .pymeshio.pmd import pmd_reader as pmd_reader
 from .. import gltf
-
-
-LOGGER = logging.getLogger(__name__)
 
 
 def z_reverse(x: float, y: float, z: float) -> tuple[float, float, float]:
@@ -34,7 +30,6 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
 
     mesh_node = gltf.Node("__mesh__")
     mesh_node.mesh = gltf.Mesh("mesh")
-    mesh_node.mesh.vertices = gltf.VertexBuffer()
 
     def pos_gen() -> Iterator[tuple[float, float, float]]:
         it = iter(src.vertices)
@@ -72,15 +67,17 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
             except StopIteration:
                 break
 
-    mesh_node.mesh.vertices.POSITION = pos_gen
-    mesh_node.mesh.vertices.NORMAL = normal_gen
-    mesh_node.mesh.vertices.JOINTS_0 = joint_gen
-    mesh_node.mesh.vertices.WEIGHTS_0 = weight_gen
+    vertices = gltf.VertexBuffer()
+    vertices.POSITION = pos_gen
+    vertices.NORMAL = normal_gen
+    vertices.JOINTS_0 = joint_gen
+    vertices.WEIGHTS_0 = weight_gen
 
     it = iter(src.indices)
     offset = 0
-    for submesh in src.materials:
-        gltf_submesh = gltf.Submesh(offset, submesh.vertex_count)
+    for i, submesh in enumerate(src.materials):
+        loader.materials.append(gltf.Material(f"{src.name}.{i}"))
+        gltf_submesh = gltf.Submesh(vertices, offset, submesh.vertex_count, i)
 
         def indices_gen():
             while True:
@@ -124,5 +121,5 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
 def load_pmd(data: bytes) -> gltf.Loader | None:
     src = pmd_reader.read(io.BytesIO(data))  # type: ignore
     if src:
-        LOGGER.debug(src)
+        print(src)
         return pmd_to_gltf(src)

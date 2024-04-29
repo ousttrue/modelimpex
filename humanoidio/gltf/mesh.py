@@ -70,12 +70,19 @@ class VertexBuffer:
 
 
 class Submesh:
-    def __init__(self, index_offset: int, index_count: int):
+    def __init__(
+        self,
+        vertices: VertexBuffer,
+        index_offset: int,
+        index_count: int,
+        material_index: int,
+    ):
+        self.vertices = vertices
         self.index_offset = index_offset
         self.index_count = index_count
-        self.vertex_offset = 0
+        self.vertex_offset = 0  # VRM shared vertex buffer
         self.indices: Callable[[], Iterator[int]] | None = None
-        self.vertices: VertexBuffer | None = None
+        self.material_index = material_index
 
     def get_indices(self) -> Iterator[tuple[int, int, int]]:
         assert self.indices
@@ -94,7 +101,6 @@ class Mesh:
     def __init__(self, name: str):
         self.name = name
         self.submeshes: list[Submesh] = []
-        self.vertices: VertexBuffer | None = None
 
 
 class ExportMesh:

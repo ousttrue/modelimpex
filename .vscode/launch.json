@@ -39,22 +39,33 @@
         },
         // typings
         {
-            "name": "rnastubgen",
+            "name": "rna_stubgen",
             "type": "debugpy",
             "request": "launch",
             "cwd": "${workspaceFolder}",
-            "program": "${workspaceFolder}/scripts/rnastubgen.py",
+            "program": "${workspaceFolder}/scripts/rna_stubgen.py",
             "args": [
                 "typings"
             ],
             "console": "integratedTerminal"
         },
         {
-            "name": "mathutilsstubgen",
+            "name": "mathutils_stubgen",
             "type": "debugpy",
             "request": "launch",
             "cwd": "${workspaceFolder}",
-            "program": "${workspaceFolder}/scripts/mathutilsstubgen.py",
+            "program": "${workspaceFolder}/scripts/mathutils_stubgen.py",
+            "args": [
+                "typings"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "bmesh_stubgen",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/scripts/bmesh_stubgen.py",
             "args": [
                 "typings"
             ],

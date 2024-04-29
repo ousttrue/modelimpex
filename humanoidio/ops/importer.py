@@ -1,5 +1,5 @@
+from typing import Literal
 from logging import getLogger
-from typing import Tuple
 
 logger = getLogger(__name__)
 
@@ -16,7 +16,11 @@ class Importer(bpy.types.Operator, ImportHelper):
     bl_idname = "humanoidio.importer"
     bl_label = "humanoidio Importer"
 
-    def execute(self, context: bpy.types.Context) -> set[str]:
+    def execute(
+        self, context: bpy.types.Context | None = None
+    ) -> set[
+        Literal["RUNNING_MODAL", "CANCELLED", "FINISHED", "PASS_THROUGH", "INTERFACE"]
+    ]:
         logger.debug("#### start ####")
         # read file
         path = pathlib.Path(self.filepath).absolute()  # type: ignore
@@ -40,7 +44,7 @@ class Importer(bpy.types.Operator, ImportHelper):
         # build mesh
         if loader:
             collection = bpy.data.collections.new(name=path.name)
-            context.scene.collection.children.link(collection)
+            context.scene.collection.children.link(collection)  # type: ignore
             bl_importer = blender_scene.Importer(collection, conversion)
             bl_importer.load(loader)
 

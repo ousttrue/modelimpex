@@ -2,8 +2,6 @@
 generate pyi from rna_info
 """
 
-from functools import cmp_to_key
-import functools
 import re
 import sys
 import bpy  # type: ignore
@@ -27,6 +25,13 @@ INCLUDE_MODULES = [
     "bl_operators.wm",
     "bl_operators.node",
 ]
+
+EX_MAP: dict[str, str] = {
+    "Object": """
+    @property
+    def children(self) -> tuple['Object', ...]:
+""",
+}
 
 
 def quote(src: str) -> str:
@@ -61,11 +66,17 @@ def type_str(v: Any):
             if len(v.enum_items) == 0:
                 return "str"
             else:
-                return (
+                literal = (
                     "Literal["
                     + ",".join([f"'{name}'" for name, _, _ in v.enum_items])
                     + "]"
                 )
+
+                if v.default_str.startswith("{"):
+                    # set
+                    return f"set[{literal}]"
+                else:
+                    return literal
 
         case "pointer":
             return v.fixed_type.identifier
@@ -178,9 +189,6 @@ class StructStubGenerator:
     def _create_struct(self, f: io.TextIOBase, name: str):
         s = self.structs[("", name)]
 
-        if name == "BlendDataObjects":
-            pass
-
         f.write("from typing import Literal # type: ignore\n")
         f.write("import mathutils # type: ignore\n")
         f.write(f"from .bpy_prop_collection import bpy_prop_collection\n")
@@ -212,7 +220,7 @@ class {s.identifier}({base_struct}):
 """
         )
         for v in s.properties:
-            if v.identifier=='pixels':
+            if v.identifier == "pixels":
                 pass
             f.write(f"    {v.identifier}: {type_str(v)}\n")
 
@@ -225,6 +233,8 @@ class {s.identifier}({base_struct}):
         #         return 0
 
         for m in s.functions:
+            if m.identifier == "execute":
+                pass
             args = ["self"] + [param_str(x) for x in m.args]
             return_values = [type_str(x) for x in m.return_values]
             match len(return_values):
@@ -235,6 +245,10 @@ class {s.identifier}({base_struct}):
                 case _:
                     return_str = "tuple[" + ",".join(return_values) + "]"
             f.write(f"    def {m.identifier}({','.join(args)})->{return_str}: ...\n")
+
+        extended = EX_MAP.get(s.identifier)
+        if extended:
+            f.write(extended)
 
     def _create_module(self, k: str, v: list[str]):
         pyi_dir = self.output / (k.replace(".", "/"))
@@ -346,6 +360,19 @@ def write_property_function(f: io.IOBase, name: str, doc: str) -> None:
         "string, integer or set": "str|int|set[str]|None",
     }
 
+    prop_value_type = {
+        "BoolProperty": "bool",
+        "BoolVectorProperty": "list[bool]",
+        "CollectionProperty": "list[Any]",
+        "EnumProperty": "str",
+        "FloatProperty": "float",
+        "FloatVectorProperty": "list[float]",
+        "IntProperty": "int",
+        "IntVectorProperty": "list[int]",
+        "PointerProperty": "bpy.types.ID",
+        "StringProperty": "str",
+    }
+
     def value_str(src: str) -> str:
         if src[0] == "(" and src[-1] == ")":
             return "[" + src[1:-1] + "]"
@@ -377,13 +404,13 @@ def write_property_function(f: io.IOBase, name: str, doc: str) -> None:
             else:
                 args.append(f"{arg_name}:{type_map[arg_type]}")
 
-    f.write(f"def {name}({','.join(args)})->types.{name}:...\n")
+    f.write(f"def {name}({','.join(args)})->{prop_value_type[name]}:...\n")
 
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser(
-        prog="rnastubgen",
+        prog="rna_stubgen",
         description="generate pyi from blender rna_info",
     )
     parser.add_argument("output", type=pathlib.Path)

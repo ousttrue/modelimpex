@@ -179,7 +179,7 @@ class {name}:
 def main():
     logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser(
-        prog="rnastubgen",
+        prog="mathutils_stubgen",
         description="generate pyi from blender rna_info",
     )
     parser.add_argument("output", type=pathlib.Path)

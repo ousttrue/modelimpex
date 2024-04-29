@@ -1,12 +1,13 @@
 import bpy
-import bmesh
+import mathutils  # type: ignore
+import bmesh  # type: ignore
 from .. import gltf
 
-UV_LAYER_NAME = 'texcoord0'
-DEFORM_LAYER_NAME = 'deform0'
+UV_LAYER_NAME = "texcoord0"
+DEFORM_LAYER_NAME = "deform0"
 
 
-def create_vertices(bm, vertex_buffer: gltf.VertexBuffer):
+def create_vertices(bm: bmesh.types.BMesh, vertex_buffer: gltf.VertexBuffer):
 
     deform_layer = None
     if vertex_buffer.JOINTS_0:
@@ -17,29 +18,29 @@ def create_vertices(bm, vertex_buffer: gltf.VertexBuffer):
         vert = bm.verts.new(pos)
         # normal
         if n:
-            vert.normal = n
+            vert.normal = mathutils.Vector(n)
         # bone weight
         if deform_layer:
             vert[deform_layer][j] = w
 
 
-def create_face(bm, mesh: gltf.Submesh):
-    for i0, i1, i2 in mesh.get_indices():
-        v0 = bm.verts[i0 + mesh.vertex_offset]
-        v1 = bm.verts[i1 + mesh.vertex_offset]
-        v2 = bm.verts[i2 + mesh.vertex_offset]
+def create_face(bm: bmesh.types.BMesh, submesh: gltf.Submesh):
+    for i0, i1, i2 in submesh.get_indices():
+        v0 = bm.verts[i0 + submesh.vertex_offset]
+        v1 = bm.verts[i1 + submesh.vertex_offset]
+        v2 = bm.verts[i2 + submesh.vertex_offset]
         face = bm.faces.new((v0, v1, v2))
         face.smooth = True  # use vertex normal
-        # face.material_index = indicesindex_to_materialindex(i)
+        face.material_index = submesh.material_index
 
 
-def get_or_create_uv_layer(bm):
+def get_or_create_uv_layer(bm: bmesh.types.BMesh) -> bmesh.types.BMLayerItem:
     if UV_LAYER_NAME in bm.loops.layers.uv:
         return bm.loops.layers.uv[UV_LAYER_NAME]
     return bm.loops.layers.uv.new(UV_LAYER_NAME)
 
 
-def set_uv(bm, uv_list):
+def set_uv(bm: bmesh.types.BMesh, uv_list: list[tuple[float, float]]):
     uv_layer = get_or_create_uv_layer(bm)
     for face in bm.faces:
         for loop in face.loops:
@@ -60,22 +61,15 @@ def create_mesh(bl_mesh: bpy.types.Mesh, mesh: gltf.Mesh):
     # create an empty BMesh
     bm = bmesh.new()
 
-    uv_list = []
+    uv_list: list[tuple[float, float]] = []
 
     # vertices
-    if mesh.vertices:
-        create_vertices(bm, mesh.vertices)
-        tex = mesh.vertices.TEXCOORD_0
+    for sm in mesh.submeshes:
+        create_vertices(bm, sm.vertices)
+        tex = sm.vertices.TEXCOORD_0
         if tex:
             for uv in tex():
                 uv_list.append(uv)
-    else:
-        for sm in mesh.submeshes:
-            create_vertices(bm, sm.vertices)
-            tex = sm.vertices.TEXCOORD_0
-            if tex:
-                for uv in tex():
-                    uv_list.append(uv)
 
     bm.verts.ensure_lookup_table()
     bm.verts.index_update()
