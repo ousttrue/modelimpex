@@ -18,6 +18,7 @@ specs
 
 """
 from typing import Self, Iterable
+import pathlib
 from .. import common
 
 
@@ -797,7 +798,7 @@ class Pmd(common.Diff):
     ]
 
     def __init__(self, version: float = 1.0):
-        self.path = ""
+        self.path: pathlib.Path | None = None
         self.version = version
         self.name = ""
         self.comment = ""

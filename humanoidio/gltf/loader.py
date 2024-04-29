@@ -124,25 +124,29 @@ class Loader:
                     pass
 
 
-def load_glb(path: pathlib.Path, dst: Coordinate) -> tuple[Loader, Conversion]:
-    json_chunk, bin_chunk = get_glb_chunks(path.read_bytes())
+def load_glb(
+    path: pathlib.Path, data: bytes, dst: Coordinate
+) -> tuple[Loader, Conversion]:
+    json_chunk, bin_chunk = get_glb_chunks(data)
     gltf = json.loads(json_chunk)
 
-    data = GltfAccessor(gltf, bin_chunk)
+    bin_accessor = GltfAccessor(gltf, bin_chunk)
     loader = Loader()
-    loader.load(data)
+    loader.load(bin_accessor)
     src = Coordinate.GLTF
     if isinstance(loader.vrm, Vrm0):
         src = Coordinate.VRM0
     return loader, Conversion(src, dst)
 
 
-def load_gltf(src: pathlib.Path, conv: Coordinate) -> tuple[Loader, Conversion]:
+def load_gltf(
+    path: pathlib.Path, json_src: str, conv: Coordinate
+) -> tuple[Loader, Conversion]:
     raise NotImplementedError()
 
 
-def load(src: pathlib.Path, conv: Coordinate) -> tuple[Loader, Conversion]:
+def load(src: pathlib.Path, data: bytes, conv: Coordinate) -> tuple[Loader, Conversion]:
     if src.suffix == ".gltf":
-        return load_gltf(src, conv)
+        return load_gltf(src, data.decode("utf-8)"), conv)
     else:
-        return load_glb(src, conv)
+        return load_glb(src, data, conv)

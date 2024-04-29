@@ -23,6 +23,7 @@ __license__ = "zlib"
 __versioon__ = "1.0.0"
 
 from typing import Self
+import pathlib
 from .. import common
 
 
@@ -1406,7 +1407,7 @@ class Pmx(common.Diff):
         comment: str = "pymeshioで生成",
         english_comment: str = "created by pymeshio",
     ):
-        self.path = ""
+        self.path: pathlib.Path | None = None
         self.version = version
         self.name = name
         self.english_name = english_name

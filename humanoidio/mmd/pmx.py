@@ -1,5 +1,6 @@
-from typing import Iterator
+from typing import Iterator, Callable
 import io
+import pathlib
 import logging
 from .pymeshio.pmx import pmx_format as pmx_model
 from .pymeshio.pmx import pmx_reader as pmx_reader
@@ -7,6 +8,7 @@ from .. import gltf
 
 
 LOGGER = logging.getLogger(__name__)
+
 
 # z:up -y:forward
 def z_reverse(x: float, y: float, z: float) -> tuple[float, float, float]:
@@ -36,7 +38,6 @@ def pmx_to_gltf(src: pmx_model.Pmx, scale: float = 1.59 / 20) -> gltf.Loader:
 
     mesh_node = gltf.Node("__mesh__")
     mesh_node.mesh = gltf.Mesh("mesh")
-    mesh_node.mesh.vertices = gltf.VertexBuffer()
 
     def pos_gen() -> Iterator[tuple[float, float, float]]:
         it = iter(src.vertices)
@@ -55,6 +56,15 @@ def pmx_to_gltf(src: pmx_model.Pmx, scale: float = 1.59 / 20) -> gltf.Loader:
             try:
                 v = next(it)
                 yield z_reverse(v.normal.x, v.normal.y, v.normal.z)
+            except StopIteration:
+                break
+
+    def tex_gen() -> Iterator[tuple[float, float]]:
+        it = iter(src.vertices)
+        while True:
+            try:
+                v = next(it)
+                yield v.uv.x, 1 - v.uv.y
             except StopIteration:
                 break
 
@@ -92,29 +102,39 @@ def pmx_to_gltf(src: pmx_model.Pmx, scale: float = 1.59 / 20) -> gltf.Loader:
             except StopIteration:
                 break
 
-    mesh_node.mesh.vertices.POSITION = pos_gen
-    mesh_node.mesh.vertices.NORMAL = normal_gen
-    mesh_node.mesh.vertices.JOINTS_0 = joint_gen
-    mesh_node.mesh.vertices.WEIGHTS_0 = weight_gen
+    vertices = gltf.VertexBuffer()
+    vertices.POSITION = pos_gen
+    vertices.NORMAL = normal_gen
+    vertices.TEXCOORD_0 = tex_gen
+    vertices.JOINTS_0 = joint_gen
+    vertices.WEIGHTS_0 = weight_gen
 
-    it = iter(src.indices)
+    def flip(
+        indices: list[int], offset: int, vertex_count: int
+    ) -> Callable[[], Iterator[int]]:
+        def gen() -> Iterator[int]:
+            for i in range(offset, offset + vertex_count, 3):
+                yield indices[i + 2]
+                yield indices[i + 1]
+                yield indices[i]
+
+        return gen
+
     offset = 0
-    for submesh in src.materials:
-        gltf_submesh = gltf.Submesh(offset, submesh.vertex_count)
+    for i, submesh in enumerate(src.materials):
+        material = gltf.Material(f"{submesh.name}")
+        if (
+            src.path
+            and submesh.texture_index >= 0
+            and submesh.texture_index < len(src.textures)
+        ):
+            material.color_texture = (
+                src.path.parent / src.textures[submesh.texture_index]
+            )
+        loader.materials.append(material)
 
-        def indices_gen():
-            while True:
-                try:
-                    i0 = next(it)
-                    i1 = next(it)
-                    i2 = next(it)
-                    yield i2
-                    yield i1
-                    yield i0
-                except StopIteration:
-                    break
-
-        gltf_submesh.indices = indices_gen
+        gltf_submesh = gltf.Submesh(vertices, offset, submesh.vertex_count, i)
+        gltf_submesh.indices = flip(src.indices, offset, submesh.vertex_count)
         mesh_node.mesh.submeshes.append(gltf_submesh)
         offset += submesh.vertex_count
     mesh_node.skin = gltf.Skin()
@@ -141,8 +161,9 @@ def pmx_to_gltf(src: pmx_model.Pmx, scale: float = 1.59 / 20) -> gltf.Loader:
     return loader
 
 
-def load_pmx(data: bytes) -> gltf.Loader | None:
+def load_pmx(path: pathlib.Path, data: bytes) -> gltf.Loader | None:
     src = pmx_reader.read(io.BytesIO(data))  # type: ignore
     if src:
         LOGGER.debug(src)
+        src.path = path
         return pmx_to_gltf(src)

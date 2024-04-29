@@ -1,5 +1,6 @@
 from typing import Iterator, Callable
 import io
+import pathlib
 from .pymeshio.pmd import pmd_format as pmd_model
 from .pymeshio.pmd import pmd_reader as pmd_reader
 from .. import gltf
@@ -49,6 +50,15 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
             except StopIteration:
                 break
 
+    def tex_gen() -> Iterator[tuple[float, float]]:
+        it = iter(src.vertices)
+        while True:
+            try:
+                v = next(it)
+                yield v.uv.x, 1 - v.uv.y
+            except StopIteration:
+                break
+
     def joint_gen() -> Iterator[tuple[int, int, int, int]]:
         it = iter(src.vertices)
         while True:
@@ -70,6 +80,7 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
     vertices = gltf.VertexBuffer()
     vertices.POSITION = pos_gen
     vertices.NORMAL = normal_gen
+    vertices.TEXCOORD_0 = tex_gen
     vertices.JOINTS_0 = joint_gen
     vertices.WEIGHTS_0 = weight_gen
 
@@ -87,7 +98,10 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
         return gen
 
     for i, submesh in enumerate(src.materials):
-        loader.materials.append(gltf.Material(f"{src.name}.{i}"))
+        material = gltf.Material(f"{src.name}.{i}")
+        if src.path and submesh.texture_file:
+            material.color_texture = src.path.parent / submesh.texture_file
+        loader.materials.append(material)
         gltf_submesh = gltf.Submesh(vertices, offset, submesh.vertex_count, i)
         gltf_submesh.indices = flip(src.indices, offset, submesh.vertex_count)
         mesh_node.mesh.submeshes.append(gltf_submesh)
@@ -115,8 +129,9 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
     return loader
 
 
-def load_pmd(data: bytes) -> gltf.Loader | None:
+def load_pmd(path: pathlib.Path, data: bytes) -> gltf.Loader | None:
     src = pmd_reader.read(io.BytesIO(data))  # type: ignore
     if src:
         print(src)
+        src.path = path
         return pmd_to_gltf(src)

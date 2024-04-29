@@ -1,5 +1,6 @@
+from typing import Callable, Iterator, cast
 import math
-from typing import Callable, Iterator
+import pathlib
 import bpy
 import mathutils  # type: ignore
 from .. import gltf
@@ -40,6 +41,33 @@ def set_bone_weight(
             group.add((vert_idx,), weight_val, "ADD")
 
 
+def build_unlit_shader(
+    tree: bpy.types.ShaderNodeTree, color_texture_image_path: pathlib.Path | None
+):
+    # clear
+    nodes = tree.nodes
+    for n in nodes:
+        nodes.remove(n)
+    links = tree.links
+    # for l in links:
+    #     print(l)
+    #     links.remove(l)
+
+    emission = tree.nodes.new(type="ShaderNodeEmission")
+    output = nodes.new(type="ShaderNodeOutputMaterial")
+    links.new(emission.outputs[0], output.inputs[0])
+
+    if color_texture_image_path:
+        img = bpy.data.images.load(str(color_texture_image_path), check_existing=True)
+
+        texture = cast(
+            bpy.types.ShaderNodeTexImage, nodes.new(type="ShaderNodeTexImage")
+        )
+        texture.image = img
+
+        links.new(texture.outputs[0], emission.inputs[0])
+
+
 class Importer:
     def __init__(self, collection: bpy.types.Collection, conversion: gltf.Conversion):
         self.collection = collection
@@ -53,6 +81,9 @@ class Importer:
         # create materials
         for m in loader.materials:
             material = bpy.data.materials.new(m.name)
+            material.use_nodes = True
+            tree = material.node_tree
+            build_unlit_shader(tree, m.color_texture)
             # todo unlit and color texture
             self.materials.append(material)
 

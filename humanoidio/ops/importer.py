@@ -1,8 +1,4 @@
 from typing import Literal
-from logging import getLogger
-
-logger = getLogger(__name__)
-
 import bpy
 from bpy_extras.io_utils import ImportHelper
 import bl_ui.space_topbar
@@ -21,38 +17,38 @@ class Importer(bpy.types.Operator, ImportHelper):
     ) -> set[
         Literal["RUNNING_MODAL", "CANCELLED", "FINISHED", "PASS_THROUGH", "INTERFACE"]
     ]:
-        logger.debug("#### start ####")
         # read file
         path = pathlib.Path(self.filepath).absolute()  # type: ignore
+        data = path.read_bytes()
         ext = path.suffix.lower()
         match ext:
             case ".pmx":
-                loader = mmd.load_pmx(path.read_bytes())
+                loader = mmd.load_pmx(path, data)
                 conversion = gltf.Conversion(
                     gltf.Coordinate.VRM1, gltf.Coordinate.BLENDER_ROTATE
                 )
 
             case ".pmd":
-                loader = mmd.load_pmd(path.read_bytes())
+                loader = mmd.load_pmd(path, data)
                 conversion = gltf.Conversion(
                     gltf.Coordinate.VRM1, gltf.Coordinate.BLENDER_ROTATE
                 )
 
             case _:
-                loader, conversion = gltf.load(path, gltf.Coordinate.BLENDER_ROTATE)
+                loader, conversion = gltf.load(
+                    path, data, gltf.Coordinate.BLENDER_ROTATE
+                )
 
         # build mesh
-        if loader:
-            collection = bpy.data.collections.new(name=path.name)
-            context.scene.collection.children.link(collection)  # type: ignore
-            bl_importer = blender_scene.Importer(collection, conversion)
-            bl_importer.load(loader)
+        if not loader:
+            return {"CANCELLED"}
 
-            logger.debug("#### end ####")
-            return {"FINISHED"}
+        collection = bpy.data.collections.new(name=path.name)
+        context.scene.collection.children.link(collection)  # type: ignore
+        bl_importer = blender_scene.Importer(collection, conversion)
+        bl_importer.load(loader)
 
-        else:
-            return {"FINISHED"}
+        return {"FINISHED"}
 
 
 def menu(self: bl_ui.space_topbar.TOPBAR_MT_file_export, context: bpy.types.Context):

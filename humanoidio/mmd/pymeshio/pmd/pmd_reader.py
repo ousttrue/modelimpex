@@ -3,6 +3,7 @@
 pmd reader
 """
 import io
+import pathlib
 from .. import common
 from . import pmd_format
 
@@ -171,7 +172,7 @@ def __read(reader: PmdReader, model: pmd_format.Pmd):
     return True
 
 
-def read_from_file(path: str) -> pmd_format.Pmd | None:
+def read_from_file(_path: str | pathlib.Path) -> pmd_format.Pmd | None:
     """
     read from file path, then return the pymeshio.pmd.Model.
 
@@ -185,7 +186,14 @@ def read_from_file(path: str) -> pmd_format.Pmd | None:
     <pmd-2.0 "Miku Hatsune" 12354vertices>
 
     """
-    pmd = read(io.BytesIO(common.readall(path)))
+
+    match _path:
+        case str():
+            path = pathlib.Path(_path)
+        case pathlib.Path():
+            path = _path
+
+    pmd = read(io.BytesIO(path.read_bytes()))
     if pmd:
         pmd.path = path
         return pmd
