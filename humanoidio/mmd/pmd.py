@@ -1,4 +1,4 @@
-from typing import Iterator
+from typing import Iterator, Callable
 import io
 from .pymeshio.pmd import pmd_format as pmd_model
 from .pymeshio.pmd import pmd_reader as pmd_reader
@@ -73,25 +73,23 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
     vertices.JOINTS_0 = joint_gen
     vertices.WEIGHTS_0 = weight_gen
 
-    it = iter(src.indices)
     offset = 0
+
+    def flip(
+        indices: list[int], offset: int, vertex_count: int
+    ) -> Callable[[], Iterator[int]]:
+        def gen() -> Iterator[int]:
+            for i in range(offset, offset + vertex_count, 3):
+                yield indices[i + 2]
+                yield indices[i + 1]
+                yield indices[i]
+
+        return gen
+
     for i, submesh in enumerate(src.materials):
         loader.materials.append(gltf.Material(f"{src.name}.{i}"))
         gltf_submesh = gltf.Submesh(vertices, offset, submesh.vertex_count, i)
-
-        def indices_gen():
-            while True:
-                try:
-                    i0 = next(it)
-                    i1 = next(it)
-                    i2 = next(it)
-                    yield i2
-                    yield i1
-                    yield i0
-                except StopIteration:
-                    break
-
-        gltf_submesh.indices = indices_gen
+        gltf_submesh.indices = flip(src.indices, offset, submesh.vertex_count)
         mesh_node.mesh.submeshes.append(gltf_submesh)
         offset += submesh.vertex_count
     mesh_node.skin = gltf.Skin()
@@ -100,7 +98,6 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
     loader.roots.append(mesh_node)
 
     def relative(parent: gltf.Node, parent_pos: tuple[float, float, float]):
-        # print(parent.name, parent.translation)
         for child in parent.children:
             child_pos = child.translation
 
