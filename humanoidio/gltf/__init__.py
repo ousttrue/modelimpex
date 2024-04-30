@@ -4,7 +4,7 @@ from .coordinate import Coordinate, Conversion
 from .types import Float3
 from .exporter import AnimationChannelTargetPath, Animation
 from . import humanoid
-from .material import Material
+from .material import Material, Texture
 
 __all__ = [
     "Node",
@@ -22,4 +22,5 @@ __all__ = [
     "Animation",
     "humanoid",
     "Material",
+    "Texture",
 ]

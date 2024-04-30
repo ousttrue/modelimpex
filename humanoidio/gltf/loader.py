@@ -1,7 +1,4 @@
-from logging import getLogger
-
-logger = getLogger(__name__)
-
+from typing import Any
 import pathlib
 import json
 from .mesh import Submesh, VertexBuffer, Mesh
@@ -11,16 +8,16 @@ from .coordinate import Coordinate, Conversion
 from .node import Node, Skin
 from .humanoid import HumanoidBones
 from . import gltf_json_type
-from .material import Material
+from .material import Material, Texture
 
 
 class Vrm0:
-    def __init__(self, src):
+    def __init__(self, src: dict[str, Any]):
         self.data = src
 
 
 class Vrm1:
-    def __init__(self, src):
+    def __init__(self, src: dict[str, Any]):
         self.data = src
 
 
@@ -30,7 +27,92 @@ class Loader:
         self.nodes: list[Node] = []
         self.roots: list[Node] = []
         self.vrm: Vrm0 | Vrm1 | None = None
+        self.textures: list[pathlib.Path | Texture] = []
         self.materials: list[Material] = []
+
+    def load(self, gltf: gltf_json_type.glTF, bin: bytes):
+
+        data = GltfAccessor(gltf, bin)
+
+        #
+        # textures
+        #
+        if "textures" in gltf:
+            for i, t in enumerate(gltf["textures"]):
+                match t:
+                    case {"source": source}:
+                        mime, image_bytes = data.image_mime_bytes(source)
+                        self.textures.append(
+                            Texture(t.get("name", f"texture.{i}"), mime, image_bytes)
+                        )
+                    case _:
+                        raise RuntimeError()
+
+        #
+        # material
+        #
+        if "materials" in gltf:
+            for i, m in enumerate(gltf["materials"]):
+                material = Material(m.get("name", f"material.{i}"))
+                self.materials.append(material)
+                match m:
+                    case {
+                        "pbrMetallicRoughness": {"baseColorTexture": {"index": index}}
+                    }:
+                        material.color_texture = index
+                    case _:
+                        pass
+
+        print(self.materials)
+
+        #
+        # mesh
+        #
+        if "meshes" in gltf:
+            for i, m in enumerate(gltf["meshes"]):
+                mesh = self._load_mesh(data, i, m)
+                self.meshes.append(mesh)
+
+        #
+        # node
+        #
+        if "nodes" in gltf:
+            for i, n in enumerate(gltf["nodes"]):
+                node = self._load_node(i, n)
+                self.nodes.append(node)
+
+            for i, n in enumerate(gltf["nodes"]):
+                node = self.nodes[i]
+                for child_index in n.get("children", []):
+                    node.add_child(self.nodes[child_index])
+
+                if "skins" in gltf and "skin" in n:
+                    s = gltf["skins"][n["skin"]]
+                    node.skin = Skin()
+                    for j in s["joints"]:
+                        node.skin.joints.append(self.nodes[j])
+
+        for node in self.nodes:
+            if not node.parent:
+                self.roots.append(node)
+
+        #
+        # extensions
+        #
+        if "extensions" in gltf:
+            if "VRM" in gltf["extensions"]:
+                self.vrm = Vrm0(gltf["extensions"]["VRM"])
+                for bone in self.vrm.data["humanoid"]["humanBones"]:
+                    node = self.nodes[bone["node"]]
+                    node.humanoid_bone = HumanoidBones.from_name(bone["bone"])
+            elif "VRMC_vrm" in gltf["extensions"]:
+                self.vrm = Vrm1(gltf["extensions"]["VRMC_vrm"])
+                for k, bone in self.vrm.data["humanoid"]["humanBones"].items():
+                    node = self.nodes[bone["node"]]
+                    try:
+                        node.humanoid_bone = HumanoidBones.from_name(k)
+                    except Exception:
+                        pass
 
     def _load_mesh(self, data: GltfAccessor, i: int, m: gltf_json_type.Mesh):
         mesh = Mesh(m.get("name", f"mesh{i}"))
@@ -38,19 +120,22 @@ class Loader:
         index_offset = 0
         vertex_offset = 0
         for prim in m["primitives"]:
-            count = data.gltf["accessors"][prim["indices"]]["count"]
-            sm = Submesh(index_offset, count)
-            sm.vertices = VertexBuffer()
-            sm.vertex_offset = vertex_offset
-            vertex_offset += data.gltf["accessors"][prim["attributes"]["POSITION"]][
-                "count"
-            ]
-            index_offset += count
+            match prim:
+                case {"indices": int(indices), "material": material}:
+                    count = data.accessors[indices]["count"]
+                    sm = Submesh(VertexBuffer(), index_offset, count, material)
+                    sm.vertex_offset = vertex_offset
+                    vertex_offset += data.accessors[prim["attributes"]["POSITION"]][
+                        "count"
+                    ]
+                    index_offset += count
 
-            mesh.submeshes.append(sm)
-            for k, v in prim["attributes"].items():
-                sm.vertices.set_attribute(k, data.accessor_generator(v))
-            sm.indices = data.accessor_generator(prim["indices"])
+                    mesh.submeshes.append(sm)
+                    for k, v in prim["attributes"].items():
+                        sm.vertices.set_attribute(k, data.accessor_generator(v))
+                    sm.indices = data.accessor_generator(prim["indices"])
+                case _:
+                    raise RuntimeError("no primitive.indices or material")
 
         return mesh
 
@@ -58,70 +143,30 @@ class Loader:
         name = n.get("name", f"node_{i}")
         node = Node(name)
 
-        node.translation = n.get("translation", (0, 0, 0))
-        node.rotation = n.get("rotation", (0, 0, 0, 1))
-        node.scale = n.get("scale", (1, 1, 1))
-        if "matrix" in n:
-            raise NotImplementedError("node.matrix")
+        match n:
+            case {"matrix": _matrix}:
+                raise NotImplementedError("node.matrix")
+            case _:
+                match n:
+                    case {"translation": (x, y, z)}:
+                        node.translation = (x, y, z)
+                    case _:
+                        node.translation = (0, 0, 0)
+                match n:
+                    case {"rotation": (x, y, z, w)}:
+                        node.rotation = (x, y, z, w)
+                    case _:
+                        node.rotation = (0, 0, 0, 1)
+                match n:
+                    case {"scale": (x, y, z)}:
+                        node.scale = (x, y, z)
+                    case _:
+                        node.scale = (1, 1, 1)
 
         if "mesh" in n:
             node.mesh = self.meshes[n["mesh"]]
 
         return node
-
-    def load(self, data: GltfAccessor):
-        #
-        # extensions
-        #
-        if "extensions" in data.gltf:
-            if "VRM" in data.gltf["extensions"]:
-                self.vrm = Vrm0(data.gltf["extensions"]["VRM"])
-            elif "VRMC_vrm" in data.gltf["extensions"]:
-                self.vrm = Vrm1(data.gltf["extensions"]["VRMC_vrm"])
-
-        #
-        # mesh
-        #
-        for i, m in enumerate(data.gltf["meshes"]):
-            mesh = self._load_mesh(data, i, m)
-            self.meshes.append(mesh)
-
-        #
-        # node
-        #
-        for i, n in enumerate(data.gltf["nodes"]):
-            node = self._load_node(i, n)
-            self.nodes.append(node)
-
-        for i, n in enumerate(data.gltf["nodes"]):
-            node = self.nodes[i]
-            for child_index in n.get("children", []):
-                node.add_child(self.nodes[child_index])
-
-            if "skin" in n:
-                s = data.gltf["skins"][n["skin"]]
-                node.skin = Skin()
-                for j in s["joints"]:
-                    node.skin.joints.append(self.nodes[j])
-
-        for node in self.nodes:
-            if not node.parent:
-                self.roots.append(node)
-
-        #
-        # vrm
-        #
-        if isinstance(self.vrm, Vrm0):
-            for b in self.vrm.data["humanoid"]["humanBones"]:
-                node = self.nodes[b["node"]]
-                node.humanoid_bone = HumanoidBones.from_name(b["bone"])
-        elif isinstance(self.vrm, Vrm1):
-            for k, b in self.vrm.data["humanoid"]["humanBones"].items():
-                node = self.nodes[b["node"]]
-                try:
-                    node.humanoid_bone = HumanoidBones.from_name(k)
-                except Exception:
-                    pass
 
 
 def load_glb(
@@ -130,9 +175,8 @@ def load_glb(
     json_chunk, bin_chunk = get_glb_chunks(data)
     gltf = json.loads(json_chunk)
 
-    bin_accessor = GltfAccessor(gltf, bin_chunk)
     loader = Loader()
-    loader.load(bin_accessor)
+    loader.load(gltf, bin_chunk)
     src = Coordinate.GLTF
     if isinstance(loader.vrm, Vrm0):
         src = Coordinate.VRM0

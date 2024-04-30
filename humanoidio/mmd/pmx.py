@@ -121,19 +121,22 @@ def pmx_to_gltf(src: pmx_model.Pmx, scale: float = 1.59 / 20) -> gltf.Loader:
         return gen
 
     offset = 0
+
+    assert src.path
+    # texture
+    for t in src.textures:
+        loader.textures.append(src.path.parent / t)
+
+    # material
     for i, submesh in enumerate(src.materials):
         material = gltf.Material(f"{submesh.name}")
-        if (
-            src.path
-            and submesh.texture_index >= 0
-            and submesh.texture_index < len(src.textures)
-        ):
-            material.color_texture = (
-                src.path.parent / src.textures[submesh.texture_index]
-            )
+        if submesh.texture_index >= 0 and submesh.texture_index < len(src.textures):
+            material.color_texture = submesh.texture_index
         loader.materials.append(material)
 
-        gltf_submesh = gltf.Submesh(vertices, offset, submesh.vertex_count, i)
+        gltf_submesh = gltf.Submesh(
+            vertices, offset, submesh.vertex_count, submesh.texture_index
+        )
         gltf_submesh.indices = flip(src.indices, offset, submesh.vertex_count)
         mesh_node.mesh.submeshes.append(gltf_submesh)
         offset += submesh.vertex_count

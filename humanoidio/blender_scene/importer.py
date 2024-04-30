@@ -1,6 +1,6 @@
+import pathlib
 from typing import Callable, Iterator, cast
 import math
-import pathlib
 import bpy
 import mathutils  # type: ignore
 from .. import gltf
@@ -41,9 +41,7 @@ def set_bone_weight(
             group.add((vert_idx,), weight_val, "ADD")
 
 
-def build_unlit_shader(
-    tree: bpy.types.ShaderNodeTree, color_texture_image_path: pathlib.Path | None
-):
+def build_unlit_shader(tree: bpy.types.NodeTree, image: bpy.types.Image | None):
     # clear
     nodes = tree.nodes
     for n in nodes:
@@ -57,14 +55,11 @@ def build_unlit_shader(
     output = nodes.new(type="ShaderNodeOutputMaterial")
     links.new(emission.outputs[0], output.inputs[0])
 
-    if color_texture_image_path:
-        img = bpy.data.images.load(str(color_texture_image_path), check_existing=True)
-
+    if image:
         texture = cast(
             bpy.types.ShaderNodeTexImage, nodes.new(type="ShaderNodeTexImage")
         )
-        texture.image = img
-
+        texture.image = image
         links.new(texture.outputs[0], emission.inputs[0])
 
 
@@ -78,12 +73,33 @@ class Importer:
         self.materials: list[bpy.types.Material] = []
 
     def load(self, loader: gltf.Loader):
+        textures: list[bpy.types.Image | None] = []
+        for t in loader.textures:
+            match t:
+                case pathlib.Path():
+                    bl_image = bpy.data.images.load(str(t), check_existing=True)
+                    textures.append(bl_image)
+                case gltf.Texture():
+                    try:
+                        from . import image_loader
+
+                        w, h, raw = image_loader.load(t.mime, t.data)
+                        bl_image = bpy.data.images.new(name=t.name, width=w, height=h)
+                        bl_image.pixels = raw
+                        bl_image.update()
+                        textures.append(bl_image)
+                    except RuntimeError:
+                        textures.append(None)
+
         # create materials
         for m in loader.materials:
             material = bpy.data.materials.new(m.name)
             material.use_nodes = True
             tree = material.node_tree
-            build_unlit_shader(tree, m.color_texture)
+
+            build_unlit_shader(
+                tree, textures[m.color_texture] if m.color_texture != None else None
+            )
             # todo unlit and color texture
             self.materials.append(material)
 
@@ -116,6 +132,14 @@ class Importer:
         for root in loader.roots:
             self._remove_empty(root)
 
+    def _create_tree(
+        self, node: gltf.Node, parent: gltf.Node | None = None, level: int = 0
+    ) -> bpy.types.Object:
+        bl_obj = self._create_object(node)
+        for child in node.children:
+            self._create_tree(child, node, level + 1)
+        return bl_obj
+
     def _create_object(self, node: gltf.Node) -> bpy.types.Object:
         if isinstance(node.mesh, gltf.Mesh):
             bl_mesh = self.mesh_map.get(node.mesh)
@@ -137,10 +161,12 @@ class Importer:
                         bg = bl_obj.vertex_groups.new(name=joint.name)
                         bg.add((0,), 1.0, "ADD")
 
-                for submesh in node.mesh.submeshes:
-                    bl_mesh.materials.append(self.materials[submesh.material_index])
+                for m in self.materials:
+                    bl_mesh.materials.append(m)
 
                 create_mesh(bl_mesh, node.mesh)
+
+                # TODO: remove no use material
         else:
             # empty
             bl_obj: bpy.types.Object = bpy.data.objects.new(node.name, None)
@@ -158,14 +184,6 @@ class Importer:
         bl_obj.rotation_quaternion = node.rotation
         bl_obj.scale = node.scale
 
-        return bl_obj
-
-    def _create_tree(
-        self, node: gltf.Node, parent: gltf.Node | None = None, level: int = 0
-    ) -> bpy.types.Object:
-        bl_obj = self._create_object(node)
-        for child in node.children:
-            self._create_tree(child, node, level + 1)
         return bl_obj
 
     def _create_humanoid(self, roots: list[gltf.Node]) -> bpy.types.Object:

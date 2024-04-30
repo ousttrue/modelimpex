@@ -136,81 +136,100 @@ def get_type_count(
 
 
 class GltfAccessor:
-    def __init__(self, gltf: gltf_json_type.glTF, bin: bytes | bytearray):
-        self.gltf = gltf
-        self.bin = bin
-        self._write_buffer = None
-        if isinstance(bin, bytearray):
-            # writeable
-            self._write_buffer = bin
-        else:
-            raise RuntimeError()
+    bufferViews: list[gltf_json_type.BufferView]
+    accessors: list[gltf_json_type.Accessor]
+    images: list[gltf_json_type.Image]
+    bin: bytes
 
-    def bufferview_bytes(self, index: int) -> bytes | bytearray | None:
-        match self.gltf:
-            case {"bufferViews": bufferViews}:
-                bufferView = bufferViews[index]
-                if self.bin:
-                    match bufferView:
-                        case {"byteOffset": offset, "byteLength": length}:
-                            return self.bin[offset : offset + length]
-                        case _:
-                            pass
-                else:
-                    raise NotImplementedError("without bin")
+    def __init__(self, gltf: gltf_json_type.glTF, bin: bytes | bytearray | None):
+        match bin:
+            case bytes():
+                self.bin = bin
+            case bytearray():
+                self.bin = bytes(bin)
             case _:
-                pass
+                self.bin = b""
+
+        match gltf:
+            case {"bufferViews": bufferViews}:
+                self.bufferViews = bufferViews
+                self._write_buffer = None
+                if isinstance(bin, bytearray):
+                    # writeable
+                    self._write_buffer = bin
+            case _:
+                raise RuntimeError()
+
+        match gltf:
+            case {"accessors": accessors}:
+                self.accessors = accessors
+            case _:
+                self.accessors = []
+
+        match gltf:
+            case {"images": images}:
+                self.images = images
+            case _:
+                self.images = []
+
+    def bufferview_bytes(self, index: int) -> bytes:
+        bufferView = self.bufferViews[index]
+        match bufferView:
+            case {"byteOffset": offset, "byteLength": length}:
+                return self.bin[offset : offset + length]
+            case _:
+                raise RuntimeError("invalid bufferView")
+
+    def image_mime_bytes(
+        self, index: int
+    ) -> tuple[gltf_json_type.ImageMimeType, bytes]:
+        image = self.images[index]
+        match image:
+            case {"mimeType": mime, "bufferView": bufferView}:
+                return mime, self.bufferview_bytes(bufferView)
+            case _:
+                raise RuntimeError("invalid image")
 
     def accessor_generator(self, index: int) -> Callable[[], Iterator[Any]]:
-        match self.gltf:
-            case {"accessors": accessors}:
-                accessor = accessors[index]
-                offset = accessor.get("byteOffset", 0)
-                count = accessor.get("count")
-                element_size, element_count = get_size_count(accessor)
-                match accessor:
-                    case {"bufferView": bufferView, "componentType": componentType}:
-                        buffer = self.bufferview_bytes(bufferView)
-                        if not buffer:
-                            raise Exception("")
-                        data = buffer[
-                            offset : offset + element_size * element_count * count
-                        ]
-                        span = get_span(data, ComponentType(componentType))
-                        if element_count == 1:
-                            return enumerate_1(span)
-                        elif element_count == 2:
-                            return enumerate_2(span)
-                        elif element_count == 3:
-                            return enumerate_3(span)
-                        elif element_count == 4:
-                            return enumerate_4(span)
-                        else:
-                            raise NotImplementedError()
-                    case _:
-                        raise Exception("")
+        accessor = self.accessors[index]
+        offset = accessor.get("byteOffset", 0)
+        count = accessor.get("count")
+        element_size, element_count = get_size_count(accessor)
+        match accessor:
+            case {"bufferView": bufferView, "componentType": componentType}:
+                buffer = self.bufferview_bytes(bufferView)
+                if not buffer:
+                    raise Exception("")
+                data = buffer[offset : offset + element_size * element_count * count]
+                span = get_span(data, ComponentType(componentType))
+                if element_count == 1:
+                    return enumerate_1(span)
+                elif element_count == 2:
+                    return enumerate_2(span)
+                elif element_count == 3:
+                    return enumerate_3(span)
+                elif element_count == 4:
+                    return enumerate_4(span)
+                else:
+                    raise NotImplementedError()
             case _:
                 raise Exception("")
 
     def push_bytes(self, data: bytes | memoryview) -> int:
         if self._write_buffer == None:
             raise Exception("not writable")
-        bufferViews: list[gltf_json_type.BufferView] = self.gltf.get("bufferViews", [])
-        self.gltf["bufferViews"] = bufferViews
-        bufferView_index = len(bufferViews)
+        bufferView_index = len(self.bufferViews)
         bufferView: gltf_json_type.BufferView = {
             "buffer": 0,
             "byteOffset": len(self.bin),
             "byteLength": len(data),
         }
         self._write_buffer.extend(data)
-        bufferViews.append(bufferView)
+        self.bufferViews.append(bufferView)
         return bufferView_index
 
     def push_array(self, values: Any, min_max: Any = None) -> int:
-        accessors: list[gltf_json_type.Accessor] = self.gltf.get("accessors", [])
-        self.gltf["accessors"] = accessors
-        accessor_index = len(accessors)
+        accessor_index = len(self.accessors)
         t, c = get_type_count(values)
         accessor: gltf_json_type.Accessor = {  # type: ignore
             "bufferView": self.push_bytes(memoryview(values).cast("B")),
@@ -225,5 +244,5 @@ class GltfAccessor:
             accessor["min"] = c.min
             accessor["max"] = c.max
 
-        accessors.append(accessor)
+        self.accessors.append(accessor)
         return accessor_index

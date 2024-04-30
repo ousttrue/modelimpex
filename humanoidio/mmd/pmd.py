@@ -100,7 +100,9 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
     for i, submesh in enumerate(src.materials):
         material = gltf.Material(f"{src.name}.{i}")
         if src.path and submesh.texture_file:
-            material.color_texture = src.path.parent / submesh.texture_file
+            texutre_index = len(loader.textures)
+            loader.textures.append(src.path.parent / submesh.texture_file)
+            material.color_texture = texutre_index
         loader.materials.append(material)
         gltf_submesh = gltf.Submesh(vertices, offset, submesh.vertex_count, i)
         gltf_submesh.indices = flip(src.indices, offset, submesh.vertex_count)
