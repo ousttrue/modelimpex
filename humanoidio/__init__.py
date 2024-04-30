@@ -7,11 +7,10 @@ bl_info = {
 
 import bpy
 from .ops.importer import Importer, menu as import_menu
-from .ops.exporter import Exporter, menu as export_menu
 from .ops.exporter_yup import ExportYUP, menu_func as export_yup_menu
 from . import human_rig
 
-CLASSES = [Importer, Exporter, ExportYUP] + human_rig.CLASSES
+CLASSES = [Importer, ExportYUP] + human_rig.CLASSES
 
 
 def register():
@@ -22,7 +21,6 @@ def register():
             human_rig.add_to_menu(c.bl_menu, c)
 
     bpy.types.TOPBAR_MT_file_import.append(import_menu)  # type: ignore
-    bpy.types.TOPBAR_MT_file_export.append(export_menu)  # type: ignore
     bpy.types.TOPBAR_MT_file_export.append(export_yup_menu)  # type: ignore
 
     bpy.types.Armature.humanoid = bpy.props.PointerProperty(
@@ -38,5 +36,4 @@ def unregister():
         #     human_rig.remove_from_menu(c.bl_menu, c)
 
     bpy.types.TOPBAR_MT_file_import.remove(import_menu)  # type: ignore
-    bpy.types.TOPBAR_MT_file_export.remove(export_menu)  # type: ignore
     bpy.types.TOPBAR_MT_file_export.remove(export_yup_menu)  # type: ignore

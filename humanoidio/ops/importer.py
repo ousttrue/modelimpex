@@ -23,12 +23,18 @@ class Importer(bpy.types.Operator, ImportHelper):
         ext = path.suffix.lower()
         match ext:
             case ".pmx":
+                # TODO: rig のシンプル化
+                # skinning に使われない joint の削除
+                # humanoid 部分の再構成
                 loader = mmd.load_pmx(path, data)
                 conversion = gltf.Conversion(
                     gltf.Coordinate.VRM1, gltf.Coordinate.BLENDER_ROTATE
                 )
 
             case ".pmd":
+                # TODO: rig のシンプル化
+                # skinning に使われない joint の削除
+                # humanoid 部分の再構成
                 loader = mmd.load_pmd(path, data)
                 conversion = gltf.Conversion(
                     gltf.Coordinate.VRM1, gltf.Coordinate.BLENDER_ROTATE

@@ -4,34 +4,36 @@ import bpy
 
 
 def prop_to_name(armature: bpy.types.Armature, prop: str) -> str | None:
-    if hasattr(armature.humanoid, prop):
-        return getattr(armature.humanoid, prop)
+    if hasattr(armature.humanoid, prop):  # type: ignore
+        return getattr(armature.humanoid, prop)  # type: ignore
 
 
-def get_human_bone(armature: bpy.types.Armature, prop: str) -> bpy.types.Bone:
+def get_human_bone(armature: bpy.types.Armature, prop: str) -> bpy.types.Bone | None:
     name = prop_to_name(armature, prop)
     if name:
-        return armature.bones[name]
+        return armature.bones.get(name)
     else:
-        return armature.bones[prop]
+        return armature.bones.get(prop)
 
 
-def get_human_editbone(armature: bpy.types.Armature, prop: str) -> bpy.types.EditBone:
+def get_human_editbone(
+    armature: bpy.types.Armature, prop: str
+) -> bpy.types.EditBone | None:
     name = prop_to_name(armature, prop)
     if name:
-        return armature.edit_bones[name]
+        return armature.edit_bones.get(name)
     else:
-        return armature.edit_bones[prop]
+        return armature.edit_bones.get(prop)
 
 
-def get_human_posebone(obj: bpy.types.Object, prop: str) -> bpy.types.PoseBone:
+def get_human_posebone(obj: bpy.types.Object, prop: str) -> bpy.types.PoseBone | None:
     armature = obj.data
     assert isinstance(armature, bpy.types.Armature)
     name = prop_to_name(armature, prop)
     if name:
-        return obj.pose.bones[name]
+        return obj.pose.bones.get(name)
     else:
-        return obj.pose.bones[prop]
+        return obj.pose.bones.get(prop)
 
 
 def get_or_create_editbone(
@@ -97,13 +99,14 @@ def set_bone_collection(
     assert isinstance(armature, bpy.types.Armature)
     collection = get_or_create_bone_collection(armature, group_name)
     bone = get_human_bone(armature, prop)
-    bone.color.palette = theme
-    collection.assign(bone)
+    if bone:
+        bone.color.palette = theme
+        collection.assign(bone)  # type: ignore
 
 
 def get_or_create_constraint(
     armature_obj: bpy.types.Object,
-    pose_bone_name: str | None,
+    pose_bone_name: str,
     constraint_type: Literal[
         "CAMERA_SOLVER",
         "FOLLOW_TRACK",
@@ -138,13 +141,14 @@ def get_or_create_constraint(
 ):
     if not constraint_name:
         constraint_name = constraint_type
-    if constraint_name in get_human_posebone(armature_obj, pose_bone_name).constraints:  # type: ignore
-        return get_human_posebone(armature_obj, pose_bone_name).constraints[
-            constraint_name
-        ]
+    pose_bone = get_human_posebone(armature_obj, pose_bone_name)
+    if not pose_bone:
+        return
+    if constraint_name in pose_bone.constraints:
+        return pose_bone.constraints[constraint_name]
 
     armature = armature_obj.data
     assert isinstance(armature, bpy.types.Armature)
-    armature.bones.active = get_human_bone(armature, pose_bone_name)
+    armature.bones.active = get_human_bone(armature, pose_bone_name)  # type: ignore
     bpy.ops.pose.constraint_add(type=constraint_type)
-    return get_human_posebone(armature_obj, pose_bone_name).constraints[constraint_name]
+    return pose_bone.constraints[constraint_name]

@@ -1,6 +1,6 @@
+from typing import Literal
 import bpy
-from .humanoid_properties import PROP_NAMES
-from typing import Optional
+from .humanoid_properties import PROP_NAMES, HumanoidProperties
 
 
 VRM_MAP = {
@@ -119,8 +119,67 @@ RIGIFY_MAP = {
     "right_little_distal": "ORG-f_pinky.03.R",
 }
 
+MMD_MAP = {
+    "hips": "センター",
+    "spine": "上半身",
+    "neck": "首",
+    "head": "頭",
+    #
+    "left_shoulder": "左肩",
+    "left_upper_arm": "左腕",
+    "left_lower_arm": "左ひじ",
+    "left_hand": "左手首",
+    #
+    "left_upper_leg": "左足",
+    "left_lower_leg": "左ひざ",
+    "left_foot": "左足首",
+    "left_toes": "左つま先",
+    #
+    "right_shoulder": "右肩",
+    "right_upper_arm": "右腕",
+    "right_lower_arm": "右ひじ",
+    "right_hand": "右手首",
+    #
+    "right_upper_leg": "右足",
+    "right_lower_leg": "右ひざ",
+    "right_foot": "右足首",
+    "right_toes": "右つま先",
+    #
+    "left_thumb_metacarpal": "左親指０",
+    "left_thumb_proximal": "左親指１",
+    "left_thumb_distal": "左親指２",
+    "left_index_proximal": "左人指１",
+    "left_index_intermediate": "左人指２",
+    "left_index_distal": "左人指３",
+    "left_middle_proximal": "左中指１",
+    "left_middle_intermediate": "左中指２",
+    "left_middle_distal": "左中指３",
+    "left_ring_proximal": "左薬指１",
+    "left_ring_intermediate": "左薬指２",
+    "left_ring_distal": "左薬指３",
+    "left_little_proximal": "左小指１",
+    "left_little_intermediate": "左小指２",
+    "left_little_distal": "左小指３",
+    #
+    "right_thumb_metacarpal": "右親指０",
+    "right_thumb_proximal": "右親指１",
+    "right_thumb_distal": "右親指２",
+    "right_index_proximal": "右人指１",
+    "right_index_intermediate": "右人指２",
+    "right_index_distal": "右人指３",
+    "right_middle_proximal": "右中指１",
+    "right_middle_intermediate": "右中指２",
+    "right_middle_distal": "右中指３",
+    "right_ring_proximal": "右薬指１",
+    "right_ring_intermediate": "右薬指２",
+    "right_ring_distal": "右薬指３",
+    "right_little_proximal": "右小指１",
+    "right_little_intermediate": "右小指２",
+    "right_little_distal": "右小指３",
+}
 
-def guess_bone(armature: bpy.types.Armature, prop: str) -> Optional[str]:
+
+def guess_bone(armature: bpy.types.Armature, prop: str) -> str | None:
     if hasattr(armature, "vrm_addon_extension"):
         vrm = armature.vrm_addon_extension
         if hasattr(vrm, "vrm1"):
@@ -142,7 +201,7 @@ def guess_bone(armature: bpy.types.Armature, prop: str) -> Optional[str]:
         raise Exception(f"{prop} not found")
 
     bone_name = RIGIFY_MAP.get(prop)
-    if bone_name in armature.bones:
+    if bone_name and bone_name in armature.bones:
         return bone_name
 
     # fall back. name based search
@@ -162,6 +221,8 @@ def guess_bone(armature: bpy.types.Armature, prop: str) -> Optional[str]:
                 if "right" in f.lower():
                     return f
 
+    return MMD_MAP.get(prop)
+
 
 class GuessHumanBones(bpy.types.Operator):
     bl_idname = "humanoid.guess_bones"
@@ -171,14 +232,20 @@ class GuessHumanBones(bpy.types.Operator):
     clear: bpy.props.BoolProperty(name="clear")
 
     @classmethod
-    def poll(cls, context: bpy.types.Context) -> bool:
-        if context.active_object:
-            return isinstance(context.active_object.data, bpy.types.Armature)
+    def poll(cls, context: bpy.types.Context) -> bool:  # type: ignore
+        if context.active_object:  # type: ignore
+            return isinstance(context.active_object.data, bpy.types.Armature)  # type: ignore
         return False
 
-    def execute(self, context: bpy.types.Context):
+    def execute(
+        self, context: bpy.types.Context | None = None
+    ) -> set[
+        Literal["RUNNING_MODAL", "CANCELLED", "FINISHED", "PASS_THROUGH", "INTERFACE"]
+    ]:
         armature = context.active_object.data
+        assert isinstance(armature, bpy.types.Armature)
         humanoid = armature.humanoid
+        assert isinstance(humanoid, HumanoidProperties)
         if self.clear:
             for prop in PROP_NAMES:
                 setattr(humanoid, prop, "")
