@@ -1,5 +1,5 @@
+from typing import NamedTuple, Iterator
 import bpy
-from typing import NamedTuple, List, Iterable, Optional
 
 PROP_NAMES = [
     "hips",
@@ -108,7 +108,7 @@ PROP_TO_HUMANBONE = {
 
 class Node(NamedTuple):
     prop: str
-    children: List["Node"]
+    children: list["Node"]
 
 
 def make_hand(prefix: str) -> Node:
@@ -203,8 +203,8 @@ TREE = Node(
 )
 
 
-def get_node(prop: str) -> Optional[Node]:
-    def find(node):
+def get_node(prop: str) -> Node | None:
+    def find(node: Node) -> Node | None:
         if node.prop == prop:
             return node
         for child in node.children:
@@ -216,15 +216,15 @@ def get_node(prop: str) -> Optional[Node]:
     return found
 
 
-def enum_children(prop: str) -> Iterable[str]:
+def enum_children(prop: str) -> Iterator[str]:
     found = get_node(prop)
     if found:
         for child in found.children:
             yield child.prop
 
 
-def get_parent(prop: str) -> Optional[str]:
-    def find_parent(node) -> Optional[Node]:
+def get_parent(prop: str) -> str | None:
+    def find_parent(node: Node) -> Node | None:
         for child in node.children:
             if child.prop == prop:
                 return node
@@ -237,102 +237,115 @@ def get_parent(prop: str) -> Optional[str]:
         return found.prop
 
 
-class HumanTree:
-    def __init__(self, armature: bpy.types.Armature) -> None:
-        # custom property
-        self.humanoid_map = armature.humanoid
-        assert self.humanoid_map
+class HumanoidProperties(bpy.types.PropertyGroup):
+    """
+    bpy.types.Bone は ID struct じゃないので、PointerProperty ではなく StringProperty で名前を保存している。
+    """
 
-    def vrm_from_name(self, bone_name: str) -> Optional[str]:
+    @staticmethod
+    def from_armature(armature: bpy.types.Armature) -> "HumanoidProperties":
+        humanoid = armature.humanoid  # type: ignore
+        assert isinstance(humanoid, HumanoidProperties)
+        return humanoid
+
+    @staticmethod
+    def from_obj(obj: bpy.types.Object) -> "HumanoidProperties":
+        armature = obj.data
+        assert isinstance(armature, bpy.types.Armature)
+        return HumanoidProperties.from_armature(armature)
+
+    hips: bpy.props.StringProperty(name="hips")  # type: ignore
+    spine: bpy.props.StringProperty(name="spine")  # type: ignore
+    chest: bpy.props.StringProperty(name="chest")  # type: ignore
+    neck: bpy.props.StringProperty(name="neck")  # type: ignore
+    head: bpy.props.StringProperty(name="head")  # type: ignore
+    # arm(8) # type: ignore
+    left_shoulder: bpy.props.StringProperty(name="left_shoulder")  # type: ignore
+    left_upper_arm: bpy.props.StringProperty(name="left_upper_arm")  # type: ignore
+    left_lower_arm: bpy.props.StringProperty(name="left_lower_arm")  # type: ignore
+    left_hand: bpy.props.StringProperty(name="left_hand")  # type: ignore
+    right_shoulder: bpy.props.StringProperty(name="right_shoulder")  # type: ignore
+    right_upper_arm: bpy.props.StringProperty(name="right_upper_arm")  # type: ignore
+    right_lower_arm: bpy.props.StringProperty(name="right_lower_arm")  # type: ignore
+    right_hand: bpy.props.StringProperty(name="right_hand")  # type: ignore
+    # leg(8) # type: ignore
+    left_upper_leg: bpy.props.StringProperty(name="left_upper_leg")  # type: ignore
+    left_lower_leg: bpy.props.StringProperty(name="left_lower_leg")  # type: ignore
+    left_foot: bpy.props.StringProperty(name="left_foot")  # type: ignore
+    left_toes: bpy.props.StringProperty(name="left_toes")  # type: ignore
+    right_upper_leg: bpy.props.StringProperty(name="right_upper_leg")  # type: ignore
+    right_lower_leg: bpy.props.StringProperty(name="right_lower_leg")  # type: ignore
+    right_foot: bpy.props.StringProperty(name="right_foot")  # type: ignore
+    right_toes: bpy.props.StringProperty(name="right_toes")  # type: ignore
+    # fingers(30) # type: ignore
+    left_thumb_metacarpal: bpy.props.StringProperty(name="left_thumb_metacarpal")  # type: ignore
+    left_thumb_proximal: bpy.props.StringProperty(name="left_thumb_proximal")  # type: ignore
+    left_thumb_distal: bpy.props.StringProperty(name="left_thumb_distal")  # type: ignore
+    left_index_proximal: bpy.props.StringProperty(name="left_index_proximal")  # type: ignore
+    left_index_intermediate: bpy.props.StringProperty(name="left_index_intermediate")  # type: ignore
+    left_index_distal: bpy.props.StringProperty(name="left_index_distal")  # type: ignore
+    left_middle_proximal: bpy.props.StringProperty(name="left_middle_proximal")  # type: ignore
+    left_middle_intermediate: bpy.props.StringProperty(name="left_middle_intermediate")  # type: ignore
+    left_middle_distal: bpy.props.StringProperty(name="left_middle_distal")  # type: ignore
+    left_ring_proximal: bpy.props.StringProperty(name="left_ring_proximal")  # type: ignore
+    left_ring_intermediate: bpy.props.StringProperty(name="left_ring_intermediate")  # type: ignore
+    left_ring_distal: bpy.props.StringProperty(name="left_ring_distal")  # type: ignore
+    left_little_proximal: bpy.props.StringProperty(name="left_little_proximal")  # type: ignore
+    left_little_intermediate: bpy.props.StringProperty(name="left_little_intermediate")  # type: ignore
+    left_little_distal: bpy.props.StringProperty(name="left_little_distal")  # type: ignore
+
+    right_thumb_metacarpal: bpy.props.StringProperty(name="right_thumb_metacarpal")  # type: ignore
+    right_thumb_proximal: bpy.props.StringProperty(name="right_thumb_proximal")  # type: ignore
+    right_thumb_distal: bpy.props.StringProperty(name="right_thumb_distal")  # type: ignore
+    right_index_proximal: bpy.props.StringProperty(name="right_index_proximal")  # type: ignore
+    right_index_intermediate: bpy.props.StringProperty(name="right_index_intermediate")  # type: ignore
+    right_index_distal: bpy.props.StringProperty(name="right_index_distal")  # type: ignore
+    right_middle_proximal: bpy.props.StringProperty(name="right_middle_proximal")  # type: ignore
+    right_middle_intermediate: bpy.props.StringProperty(
+        name="right_middle_intermediate"
+    )  # type: ignore
+    right_middle_distal: bpy.props.StringProperty(name="right_middle_distal")  # type: ignore
+    right_ring_proximal: bpy.props.StringProperty(name="right_ring_proximal")  # type: ignore
+    right_ring_intermediate: bpy.props.StringProperty(name="right_ring_intermediate")  # type: ignore
+    right_ring_distal: bpy.props.StringProperty(name="right_ring_distal")  # type: ignore
+    right_little_proximal: bpy.props.StringProperty(name="right_little_proximal")  # type: ignore
+    right_little_intermediate: bpy.props.StringProperty(
+        name="right_little_intermediate"
+    )  # type: ignore
+    right_little_distal: bpy.props.StringProperty(name="right_little_distal")  # type: ignore
+
+    def vrm_from_name(self, bone_name: str) -> str | None:
         for prop in PROP_NAMES:
-            if getattr(self.humanoid_map, prop) == bone_name:
+            if getattr(self, prop) == bone_name:
                 human_bone = PROP_TO_HUMANBONE.get(prop)
                 if human_bone:
                     return human_bone
                 else:
                     return prop
 
-    def prop_from_name(self, bone_name: str) -> Optional[str]:
+    def prop_from_name(self, bone_name: str) -> str | None:
         for prop in PROP_NAMES:
-            if getattr(self.humanoid_map, prop) == bone_name:
+            if getattr(self, prop) == bone_name:
                 return prop
 
-    def child_bone_names_from_name(self, name: str) -> Iterable[str]:
+    def child_bone_names_from_name(self, name: str) -> Iterator[str]:
         prop = self.prop_from_name(name)
         if prop:
             for child_prop in enum_children(prop):
-                bone_name = getattr(self.humanoid_map, child_prop)
+                bone_name = getattr(self, child_prop)
                 if bone_name:
                     yield bone_name
 
-    def get_parentname(self, name: str) -> Optional[str]:
+    def get_parentname(self, name: str) -> str | None:
         prop = self.prop_from_name(name)
         if prop:
             parent_prop = get_parent(prop)
             if parent_prop:
-                name = getattr(self.humanoid_map, parent_prop)
+                name = getattr(self, parent_prop)
 
-    def bonename_from_prop(self, prop: str) -> Optional[str]:
-        return getattr(self.humanoid_map, prop)
+    def bonename_from_prop(self, prop: str) -> str | None:
+        return getattr(self, prop)
 
-
-class HumanoidProperties(bpy.types.PropertyGroup):
-    hips: bpy.props.StringProperty(name="hips")
-    spine: bpy.props.StringProperty(name="spine")
-    chest: bpy.props.StringProperty(name="chest")
-    neck: bpy.props.StringProperty(name="neck")
-    head: bpy.props.StringProperty(name="head")
-    # arm(8)
-    left_shoulder: bpy.props.StringProperty(name="left_shoulder")
-    left_upper_arm: bpy.props.StringProperty(name="left_upper_arm")
-    left_lower_arm: bpy.props.StringProperty(name="left_lower_arm")
-    left_hand: bpy.props.StringProperty(name="left_hand")
-    right_shoulder: bpy.props.StringProperty(name="right_shoulder")
-    right_upper_arm: bpy.props.StringProperty(name="right_upper_arm")
-    right_lower_arm: bpy.props.StringProperty(name="right_lower_arm")
-    right_hand: bpy.props.StringProperty(name="right_hand")
-    # leg(8)
-    left_upper_leg: bpy.props.StringProperty(name="left_upper_leg")
-    left_lower_leg: bpy.props.StringProperty(name="left_lower_leg")
-    left_foot: bpy.props.StringProperty(name="left_foot")
-    left_toes: bpy.props.StringProperty(name="left_toes")
-    right_upper_leg: bpy.props.StringProperty(name="right_upper_leg")
-    right_lower_leg: bpy.props.StringProperty(name="right_lower_leg")
-    right_foot: bpy.props.StringProperty(name="right_foot")
-    right_toes: bpy.props.StringProperty(name="right_toes")
-    # fingers(30)
-    left_thumb_metacarpal: bpy.props.StringProperty(name="left_thumb_metacarpal")
-    left_thumb_proximal: bpy.props.StringProperty(name="left_thumb_proximal")
-    left_thumb_distal: bpy.props.StringProperty(name="left_thumb_distal")
-    left_index_proximal: bpy.props.StringProperty(name="left_index_proximal")
-    left_index_intermediate: bpy.props.StringProperty(name="left_index_intermediate")
-    left_index_distal: bpy.props.StringProperty(name="left_index_distal")
-    left_middle_proximal: bpy.props.StringProperty(name="left_middle_proximal")
-    left_middle_intermediate: bpy.props.StringProperty(name="left_middle_intermediate")
-    left_middle_distal: bpy.props.StringProperty(name="left_middle_distal")
-    left_ring_proximal: bpy.props.StringProperty(name="left_ring_proximal")
-    left_ring_intermediate: bpy.props.StringProperty(name="left_ring_intermediate")
-    left_ring_distal: bpy.props.StringProperty(name="left_ring_distal")
-    left_little_proximal: bpy.props.StringProperty(name="left_little_proximal")
-    left_little_intermediate: bpy.props.StringProperty(name="left_little_intermediate")
-    left_little_distal: bpy.props.StringProperty(name="left_little_distal")
-
-    right_thumb_metacarpal: bpy.props.StringProperty(name="right_thumb_metacarpal")
-    right_thumb_proximal: bpy.props.StringProperty(name="right_thumb_proximal")
-    right_thumb_distal: bpy.props.StringProperty(name="right_thumb_distal")
-    right_index_proximal: bpy.props.StringProperty(name="right_index_proximal")
-    right_index_intermediate: bpy.props.StringProperty(name="right_index_intermediate")
-    right_index_distal: bpy.props.StringProperty(name="right_index_distal")
-    right_middle_proximal: bpy.props.StringProperty(name="right_middle_proximal")
-    right_middle_intermediate: bpy.props.StringProperty(
-        name="right_middle_intermediate"
-    )
-    right_middle_distal: bpy.props.StringProperty(name="right_middle_distal")
-    right_ring_proximal: bpy.props.StringProperty(name="right_ring_proximal")
-    right_ring_intermediate: bpy.props.StringProperty(name="right_ring_intermediate")
-    right_ring_distal: bpy.props.StringProperty(name="right_ring_distal")
-    right_little_proximal: bpy.props.StringProperty(name="right_little_proximal")
-    right_little_intermediate: bpy.props.StringProperty(
-        name="right_little_intermediate"
-    )
-    right_little_distal: bpy.props.StringProperty(name="right_little_distal")
+    def __iter__(self) -> Iterator[tuple[str, str | None]]:
+        for prop_name in PROP_NAMES:
+            yield prop_name, self.bonename_from_prop(prop_name)

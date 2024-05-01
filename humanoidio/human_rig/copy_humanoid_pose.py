@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import cast, Any, TypedDict
 import bpy
 import json
 from . import humanoid_properties
@@ -8,13 +8,23 @@ VRM_ANIMATION = "VRMC_vrm_animation"
 VRM_POSE = "UNIVRM_pose"
 
 
+class GltfNode(TypedDict):
+    name: str
+    children: list[int] | None
+    translation: tuple[float, float, float] | None
+    rotation: tuple[float, float, float, float] | None
+
+
 class Builder:
     def __init__(self, obj: bpy.types.Object, to_meter: float) -> None:
-        self.obj = obj
-        self.tree = humanoid_properties.HumanTree(obj.data)
+        self.armature_obj = obj
+        armature = self.armature_obj.data
+        assert isinstance(armature, bpy.types.Armature)
+        self.armature = armature
+        self.tree = humanoid_properties.HumanoidProperties.from_armature(self.armature)
         self.to_meter = to_meter
 
-        self.gltf = {
+        self.gltf: dict[str, Any] = {
             "scene": 0,
             "scenes": [{"nodes": [0]}],
             "nodes": [
@@ -52,38 +62,43 @@ class Builder:
             },
         }
 
-    def add_gltf_node(self, gltf_parent: Optional[dict], gltf_node: dict) -> int:
+    def get_root(self) -> GltfNode:
+        return self.gltf["nodes"][0]
+
+    def add_gltf_node(self, gltf_parent: GltfNode | None, gltf_node: GltfNode) -> int:
         index = len(self.gltf["nodes"])
         if not gltf_parent:
             # root
-            gltf_parent = self.gltf["nodes"][0]
-        if "children" not in gltf_parent:
-            gltf_parent["children"] = []
-        gltf_parent["children"].append(index)
+            gltf_parent = self.get_root()
+        parent_children = gltf_parent.get("children")
+        if not parent_children:
+            parent_children = []
+            gltf_parent["children"] = parent_children
+        parent_children.append(index)
         self.gltf["nodes"].append(gltf_node)
         return index
 
     def _traverse_tpose(
         self,
         b: bpy.types.Bone,
-        parent: Optional[bpy.types.Bone],
-        gltf_parent,
+        parent: bpy.types.Bone | None,
+        gltf_parent: GltfNode | None,
         *,
         indent: str,
-    ):
+    ) -> None:
         m = b.matrix_local
         if parent:
             m = parent.matrix_local.inverted() @ m
         t, r, s = m.decompose()
         print(f"{indent}{b}: {t} {r}")
-        gltf_node = {
+        gltf_node: GltfNode = {
             "name": b.name,
-            "translation": [
+            "translation": (
                 t.x * self.to_meter,
                 t.y * self.to_meter,
                 t.z * self.to_meter,
-            ],
-            "rotation": [r.x, r.y, r.z, r.w],
+            ),
+            "rotation": (r.x, r.y, r.z, r.w),
         }
         index = self.add_gltf_node(gltf_parent, gltf_node)
         bone_name = self.tree.vrm_from_name(b.name)
@@ -94,18 +109,17 @@ class Builder:
             ] = {"node": index}
 
         for child_name in self.tree.child_bone_names_from_name(b.name):
-            child = self.obj.data.bones[child_name]
+            child = self.armature.bones[child_name]
             self._traverse_tpose(child, b, gltf_node, indent=indent + "  ")
 
-        return gltf_node
-
-    def get_tpose(self):
+    def get_tpose(self) -> None:
         hips_name = self.tree.bonename_from_prop("hips")
-        hips = self.obj.data.bones[hips_name]
-        self._traverse_tpose(hips, None, None, indent="")
+        if hips_name:
+            hips = self.armature.bones[hips_name]
+            self._traverse_tpose(hips, None, None, indent="")
 
     def _traverse_current_pose(
-        self, b: bpy.types.PoseBone, parent: Optional[bpy.types.PoseBone]
+        self, b: bpy.types.PoseBone, parent: bpy.types.PoseBone | None
     ):
         human_bone = self.tree.vrm_from_name(b.name)
         assert human_bone
@@ -122,21 +136,22 @@ class Builder:
         ]
         vrm_pose["rotations"][human_bone] = [r.x, r.y, r.z, r.w]
         if human_bone == "hips":
-            vrm_pose["translation"] = [
+            vrm_pose["translation"] = (
                 t.x * self.to_meter,
                 t.y * self.to_meter,
                 t.z * self.to_meter,
-            ]
+            )
 
         for child_name in self.tree.child_bone_names_from_name(b.name):
-            child = self.obj.pose.bones[child_name]
+            child = self.armature_obj.pose.bones[child_name]
             self._traverse_current_pose(child, b)
 
-    def get_current_pose(self):
-        with enter_pose(self.obj):
+    def get_current_pose(self) -> None:
+        with enter_pose(self.armature_obj):
             hips_name = self.tree.bonename_from_prop("hips")
-            hips = self.obj.pose.bones[hips_name]
-            self._traverse_current_pose(hips, None)
+            if hips_name:
+                hips = self.armature_obj.pose.bones[hips_name]
+                self._traverse_current_pose(hips, None)
 
     def to_json(self) -> str:
         return json.dumps(self.gltf, indent=2)

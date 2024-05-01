@@ -18,10 +18,11 @@ def make_inverted_pelvis(obj: bpy.types.Object):
         print(f"enter EDIT mode from {mode} mode")
         bpy.ops.object.mode_set(mode="EDIT")
 
-    armature = cast(bpy.types.Armature, obj.data)
+    armature = obj.data
+    assert isinstance(armature, bpy.types.Armature)
 
     root = get_or_create_editbone(armature, "Root")
-    root.parent = None
+    root.parent = None  # type: ignore
     root.use_connect = False
     root.head = (0, 0, 0)
     root.tail = (0, 1, 0)

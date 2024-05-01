@@ -33,6 +33,25 @@ EX_MAP: dict[str, str] = {
 """,
 }
 
+# https://github.com/blender/blender/blob/main/scripts/modules/bpy_extras/io_utils.py
+BPY_EXTRAS = """
+from typing import Literal
+from bpy.types import Context, Event, StringProperty, BoolProperty
+
+
+class ExportHelper:
+    filepath: str
+
+    # subclasses can override with decorator
+    # True == use ext, False == no ext, None == do nothing.
+    check_extension: bool = True
+
+
+class ImportHelper:
+    filepath: str
+
+"""
+
 
 def quote(src: str) -> str:
     return '"' + src + '"'
@@ -418,7 +437,10 @@ def main():
 
     structs, funcs, ops, props = rna_info.BuildRNAInfo()  # type: ignore
 
-    bpy_dir = args.output / "bpy"
+    out_dir = args.output
+    assert isinstance(out_dir, pathlib.Path)
+
+    bpy_dir = out_dir / "bpy"
     bpy_init = bpy_dir / "__init__.pyi"
     bpy_init.parent.mkdir(parents=True, exist_ok=True)
     with bpy_init.open("w", encoding="utf-8") as f:
@@ -534,10 +556,10 @@ class bpy_prop_collection(Generic[T]):
 """
         )
 
-    sg = StructStubGenerator(args.output, structs)  # type: ignore
+    sg = StructStubGenerator(out_dir, structs)  # type: ignore
     sg.generate()
 
-    og = OperatorStubGenerator(args.output, ops)  # type: ignore
+    og = OperatorStubGenerator(out_dir, ops)  # type: ignore
     og.generate()
 
     bpy_props_pyi = bpy_dir / "props.pyi"
@@ -551,6 +573,11 @@ class bpy_prop_collection(Generic[T]):
                 prop = getattr(bpy.props, d)
                 print(prop)
                 write_property_function(f, d, prop.__doc__)
+
+    bpy_extras_io_utils_pyi = out_dir / "bpy_extras/io_utils.pyi"
+    bpy_extras_io_utils_pyi.parent.mkdir(parents=True, exist_ok=True)
+    with bpy_extras_io_utils_pyi.open("w", encoding="utf-8") as f:
+        f.write(BPY_EXTRAS)
 
 
 if __name__ == "__main__":

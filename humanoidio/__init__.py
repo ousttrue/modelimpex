@@ -29,6 +29,7 @@ def register():
 
 
 def unregister():
+    del bpy.types.Armature.humanoid
     for c in reversed(CLASSES):
         bpy.utils.unregister_class(c)  # type: ignore
 

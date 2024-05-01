@@ -9,7 +9,7 @@ class SelectPoseBone(bpy.types.Operator):
     bl_label = "select_pose_bone"
     bl_options = {"REGISTER", "UNDO"}
 
-    bone: bpy.props.StringProperty(name="bone_name")
+    bone: bpy.props.StringProperty(name="bone_name")  # type: ignore
 
     @classmethod
     def poll(cls, context):
@@ -52,6 +52,7 @@ class ArmatureHumanoidPanel(bpy.types.Panel):
 
     def draw(self, context):
         armature = context.active_object.data
+        assert isinstance(armature, bpy.types.Armature)
         self.draw_bone(armature, "hips")
         self.draw_bone(armature, "spine")
         self.draw_bone(armature, "chest")

@@ -1,4 +1,4 @@
-from typing import Iterator, Any, cast, Literal
+from typing import Iterator, Any, cast, Literal, TypedDict
 from contextlib import contextmanager
 
 import bpy
@@ -6,6 +6,11 @@ import mathutils  # type: ignore
 
 from .meshstore import MeshStore, Vector3_from_meshVertex, Vector3
 from . import gltf
+from ..human_rig import HumanoidProperties
+
+
+class HumanBone(TypedDict):
+    node: int
 
 
 class Node:
@@ -108,6 +113,8 @@ class GLTFBuilder:
 
         self.tmp_objects: list[bpy.types.Object] = []
 
+        self.extensions: dict[str, Any] = {}
+
     def __enter__(self):
         return self
 
@@ -123,19 +130,6 @@ class GLTFBuilder:
         for o in objects:
             root_node = self._export_object(None, o)
             self.root_nodes.append(root_node)
-
-    def _create_copy(self, o: bpy.types.Object) -> tuple[bpy.types.Object, bpy.types.Mesh]:
-        new_obj = cast(bpy.types.Object, o.copy())
-        mesh = cast(bpy.types.Mesh, o.data.copy())
-        new_obj.data = mesh
-        bpy.data.scenes[0].collection.objects.link(new_obj)
-
-        self.tmp_objects.append(new_obj)
-
-        with tmp_mode("EDIT", new_obj):
-            bpy.ops.mesh.sort_elements(type="MATERIAL", elements={"FACE"})
-
-        return new_obj, mesh
 
     def _export_object(
         self, parent: Node | None, o: bpy.types.Object, indent: str = ""
@@ -161,13 +155,44 @@ class GLTFBuilder:
             node.mesh = self._export_mesh(mesh, o.vertex_groups, bone_names)
 
         elif o.type == "ARMATURE":
-            _skin = self._get_or_create_skin(node, o)
+            self._get_or_create_skin(node, o)
+
+            self._export_humanoid(HumanoidProperties.from_obj(o))
 
         for child in o.children:
             child_node = self._export_object(node, child, indent + self.indent)
             node.children.append(child_node)
 
         return node
+
+    def _create_copy(
+        self, o: bpy.types.Object
+    ) -> tuple[bpy.types.Object, bpy.types.Mesh]:
+        new_obj = cast(bpy.types.Object, o.copy())
+        mesh = cast(bpy.types.Mesh, o.data.copy())
+        new_obj.data = mesh
+        bpy.data.scenes[0].collection.objects.link(new_obj)
+
+        self.tmp_objects.append(new_obj)
+
+        with tmp_mode("EDIT", new_obj):
+            bpy.ops.mesh.sort_elements(type="MATERIAL", elements={"FACE"})
+
+        return new_obj, mesh
+
+    def _export_humanoid(self, humanoid: HumanoidProperties):
+
+        vrm_bones: dict[str, HumanBone] = {}
+        for _, bone_name in humanoid:
+            if bone_name:
+                vrm_name = humanoid.vrm_from_name(bone_name)
+                if vrm_name:
+                    for i, node in enumerate(self.nodes):
+                        if node.name == bone_name:
+                            vrm_bones[vrm_name] = {"node": i}
+                            break
+
+        self.extensions["VRMC_vrm"] = {"humanoid": {"humanBones": vrm_bones}}
 
     def _export_bone(
         self, parent: Node, matrix_world: mathutils.Matrix, bone: bpy.types.Bone

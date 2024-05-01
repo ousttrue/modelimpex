@@ -174,6 +174,8 @@ def to_gltf(
     nodes = [to_gltf_node(node) for node in self.nodes]
     skins = [to_gltf_skin(skin) for skin in self.skins]
 
+    # humanoid
+
     uri: str | None = str(bin_path.relative_to(gltf_path.parent)) if bin_path else None
     gltf_root = gltf.GLTF(
         buffers=[gltf.GLTFBUffer(uri, len(buffer.buffer.data))],
@@ -187,6 +189,7 @@ def to_gltf(
         nodes=nodes,
         scenes=[scene],
         skins=skins,
+        extensions=self.extensions,
     )
 
     return gltf_root, buffer.buffer.data

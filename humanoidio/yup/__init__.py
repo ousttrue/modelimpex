@@ -48,7 +48,7 @@ def export(path: pathlib.Path, selected_only: bool):
             f.write(json_bytes)
         with bin_path.open("wb") as f:
             f.write(bin_bytes)
-    elif ext == ".glb":
+    elif ext == ".glb" or ext == ".vrm":
         with path.open("wb") as f:
             if len(json_bytes) % 4 != 0:
                 json_padding_size = 4 - len(json_bytes) % 4

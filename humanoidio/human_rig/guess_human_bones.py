@@ -229,7 +229,7 @@ class GuessHumanBones(bpy.types.Operator):
     bl_label = "Guess Humanoid Bones"
     bl_options = {"REGISTER", "UNDO"}
 
-    clear: bpy.props.BoolProperty(name="clear")
+    clear: bpy.props.BoolProperty(name="clear")  # type: ignore
 
     @classmethod
     def poll(cls, context: bpy.types.Context) -> bool:  # type: ignore
@@ -244,8 +244,7 @@ class GuessHumanBones(bpy.types.Operator):
     ]:
         armature = context.active_object.data
         assert isinstance(armature, bpy.types.Armature)
-        humanoid = armature.humanoid
-        assert isinstance(humanoid, HumanoidProperties)
+        humanoid = HumanoidProperties.from_armature(armature)
         if self.clear:
             for prop in PROP_NAMES:
                 setattr(humanoid, prop, "")

@@ -13,7 +13,7 @@ class GLTFEncoder(json.JSONEncoder):
 
 
 def recursive_asdict(o):
-    if isinstance(o, tuple) and hasattr(o, '_asdict'):
+    if isinstance(o, tuple) and hasattr(o, "_asdict"):
         obj = {}
         for k, v in o._asdict().items():
             if v is None:
@@ -36,8 +36,8 @@ def recursive_asdict(o):
 
 
 class GLTFAsset(NamedTuple):
-    generator: str = 'io_scene_yup'
-    version: str = '2.0'
+    generator: str = "io_scene_yup"
+    version: str = "2.0"
 
 
 class MimeType(Enum):
@@ -128,15 +128,14 @@ class GLTFMaterial(NamedTuple):
     doubleSided: bool = False
 
 
-def create_default_material()->GLTFMaterial:
+def create_default_material() -> GLTFMaterial:
     return GLTFMaterial(
-        name="default",
-        pbrMetallicRoughness=GLTFMaterialPBRMetallicRoughness()
+        name="default", pbrMetallicRoughness=GLTFMaterialPBRMetallicRoughness()
     )
 
 
 class GLTFBUffer(NamedTuple):
-    uri: Optional[str] # None for glb chunk reference
+    uri: Optional[str]  # None for glb chunk reference
     byteLength: int
 
 
@@ -145,7 +144,7 @@ class GLTFBufferView(NamedTuple):
     buffer: Optional[int]
     byteOffset: int
     byteLength: int
-    #byteStride: int
+    # byteStride: int
     # target:
 
 
@@ -158,20 +157,23 @@ class GLTFAccessorComponentType(Enum):
     FLOAT = 5126
 
 
-def format_to_componentType(t: str)->Tuple[GLTFAccessorComponentType, int]:
-    if t == 'f':
+def format_to_componentType(t: str) -> Tuple[GLTFAccessorComponentType, int]:
+    if t == "f":
         return GLTFAccessorComponentType.FLOAT, 1
-    elif t == 'I':
+    elif t == "I":
         return GLTFAccessorComponentType.UNSIGNED_INT, 1
-    elif t == 'T{<f:x:<f:y:<f:z:}':
+    elif t == "T{<f:x:<f:y:<f:z:}":
         return GLTFAccessorComponentType.FLOAT, 3
-    elif t == 'T{<f:x:<f:y:}':
+    elif t == "T{<f:x:<f:y:}":
         return GLTFAccessorComponentType.FLOAT, 2
-    elif t == 'T{<f:_11:<f:_12:<f:_13:<f:_14:<f:_21:<f:_22:<f:_23:<f:_24:<f:_31:<f:_32:<f:_33:<f:_34:<f:_41:<f:_42:<f:_43:<f:_44:}':
+    elif (
+        t
+        == "T{<f:_11:<f:_12:<f:_13:<f:_14:<f:_21:<f:_22:<f:_23:<f:_24:<f:_31:<f:_32:<f:_33:<f:_34:<f:_41:<f:_42:<f:_43:<f:_44:}"
+    ):
         return GLTFAccessorComponentType.FLOAT, 16
-    elif t == 'T{<H:x:<H:y:<H:z:<H:w:}':
+    elif t == "T{<H:x:<H:y:<H:z:<H:w:}":
         return GLTFAccessorComponentType.UNSIGNED_SHORT, 4
-    elif t == 'T{<f:x:<f:y:<f:z:<f:w:}':
+    elif t == "T{<f:x:<f:y:<f:z:<f:w:}":
         return GLTFAccessorComponentType.FLOAT, 4
     else:
         raise NotImplementedError()
@@ -187,7 +189,7 @@ class GLTFAccessorType(Enum):
     MAT4 = "MAT4"
 
 
-def accessortype_from_elementCount(count: int)->GLTFAccessorType:
+def accessortype_from_elementCount(count: int) -> GLTFAccessorType:
     if count == 1:
         return GLTFAccessorType.SCALAR
     elif count == 2:
@@ -273,6 +275,7 @@ class GLTF(NamedTuple):
     nodes: List[GLTFNode] = []
     scenes: List[GLTFScene] = []
     skins: List[GLTFSkin] = []
+    extensions: dict[str, Any] = {}
 
     def to_json(self):
         return json.dumps(recursive_asdict(self), cls=GLTFEncoder, indent=2)
