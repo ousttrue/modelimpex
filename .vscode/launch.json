@@ -71,5 +71,12 @@
             ],
             "console": "integratedTerminal"
         },
+        // pyqt
+        {
+            "name": "gui",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "gui"
+        },
     ]
 }
