@@ -76,7 +76,10 @@
             "name": "gui",
             "type": "debugpy",
             "request": "launch",
-            "module": "gui"
+            "module": "gui",
+            "args": [
+                "${env:PMD_FILE}"
+            ]
         },
     ]
 }
