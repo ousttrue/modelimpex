@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import (
     Qt,
 )
+from PySide6.QtGui import QAction
 from humanoidio import mmd, gltf
 from . import tree, table
 
@@ -27,12 +28,26 @@ class Window(QMainWindow):
         self.glwidget = glglue.pyside6.Widget(self, render_gl=self.scene.render)
         self.setCentralWidget(self.glwidget)
 
+        # menu
+        self.menubar = self.menuBar()
+        self.menubar.setNativeMenuBar(False)
+
+        self.menu_file = self.menubar.addMenu("File")
+        open_action = QAction("Open", self)
+        self.menu_file.addAction(open_action)  # type: ignore
+        open_action.triggered.connect(self.file_open)
+
+        self.menu_docks = self.menubar.addMenu("Docks")
+
+        # status bar
         self.sb = self.statusBar()
         self.sb.showMessage("ステータスバー")
 
+        #
+        # docks
+        #
         self.tree = QTreeView()
         self.table = QTableView()
-
         vertical_header = self.table.verticalHeader()
         vertical_header.setSectionResizeMode(QHeaderView.Fixed)  # type: ignore
         vertical_header.setDefaultSectionSize(64)
@@ -41,11 +56,16 @@ class Window(QMainWindow):
         self.bones = QDockWidget("bones", self)
         self.bones.setWidget(self.tree)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.bones)
+        self.menu_docks.addAction(self.bones.toggleViewAction())  # type: ignore
 
         # materials(list)
         self.materials = QDockWidget("materials", self)
         self.materials.setWidget(self.table)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.materials)
+        self.menu_docks.addAction(self.materials.toggleViewAction())  # type: ignore
+
+    def file_open(self) -> None:
+        print("file_open")
 
     def set(self, loader: gltf.Loader):
         tree_model = tree.GltfNodeModel(loader.nodes)
@@ -64,6 +84,8 @@ class Window(QMainWindow):
             loader.materials, ["name", "vertex"], get_col
         )
         self.table.setModel(table_model)
+
+        # self.setWindowTitle(loade)
 
 
 def main(path: pathlib.Path):
