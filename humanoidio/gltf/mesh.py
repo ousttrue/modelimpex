@@ -1,106 +1,104 @@
 from typing import Callable, Iterator, Any
-from .types import Float3
+from .types import Float3, Vertex, Bdef4
 import ctypes
+import dataclasses
 
 
-class VertexBuffer:
-    def __init__(self) -> None:
-        self.POSITION: Callable[[], Iterator[tuple[float, float, float]]] | None = None
-        self.NORMAL: Callable[[], Iterator[tuple[float, float, float]]] | None = None
-        self.TEXCOORD_0: Callable[[], Iterator[tuple[float, float]]] | None = None
-        self.JOINTS_0: Callable[[], Iterator[tuple[int, int, int, int]]] | None = None
-        self.WEIGHTS_0: (
-            Callable[[], Iterator[tuple[float, float, float, float]]] | None
-        ) = None
+# class VertexBuffer:
+#     def __init__(self) -> None:
+#         self.POSITION: Callable[[], Iterator[tuple[float, float, float]]] | None = None
+#         self.NORMAL: Callable[[], Iterator[tuple[float, float, float]]] | None = None
+#         self.TEXCOORD_0: Callable[[], Iterator[tuple[float, float]]] | None = None
+#         self.JOINTS_0: Callable[[], Iterator[tuple[int, int, int, int]]] | None = None
+#         self.WEIGHTS_0: (
+#             Callable[[], Iterator[tuple[float, float, float, float]]] | None
+#         ) = None
 
-    def set_attribute(self, key: str, value: Any):
-        if key == "POSITION":
-            self.POSITION = value  # type: ignore
-        elif key == "NORMAL":
-            self.NORMAL = value  # type: ignore
-        elif key == "TEXCOORD_0":
-            self.TEXCOORD_0 = value  # type: ignore
-        elif key == "JOINTS_0":
-            self.JOINTS_0 = value  # type: ignore
-        elif key == "WEIGHTS_0":
-            self.WEIGHTS_0 = value  # type: ignore
-        else:
-            raise NotImplementedError()
+#     def set_attribute(self, key: str, value: Any):
+#         if key == "POSITION":
+#             self.POSITION = value  # type: ignore
+#         elif key == "NORMAL":
+#             self.NORMAL = value  # type: ignore
+#         elif key == "TEXCOORD_0":
+#             self.TEXCOORD_0 = value  # type: ignore
+#         elif key == "JOINTS_0":
+#             self.JOINTS_0 = value  # type: ignore
+#         elif key == "WEIGHTS_0":
+#             self.WEIGHTS_0 = value  # type: ignore
+#         else:
+#             raise NotImplementedError()
 
-    def get_vertices(
-        self,
-    ) -> Iterator[
-        tuple[
-            tuple[float, float, float],
-            tuple[float, float, float],
-            tuple[int, int, int, int],
-            tuple[float, float, float, float],
-        ]
-    ]:
-        assert self.POSITION
-        pos = self.POSITION()
-        assert self.NORMAL
-        nom = self.NORMAL()
+#     def get_vertices(
+#         self,
+#     ) -> Iterator[
+#         tuple[
+#             tuple[float, float, float],
+#             tuple[float, float, float],
+#             tuple[int, int, int, int],
+#             tuple[float, float, float, float],
+#         ]
+#     ]:
+#         assert self.POSITION
+#         pos = self.POSITION()
+#         assert self.NORMAL
+#         nom = self.NORMAL()
 
-        def ng_joint() -> Iterator[tuple[int, int, int, int]]:
-            while True:
-                yield 0, 0, 0, 0
+#         def ng_joint() -> Iterator[tuple[int, int, int, int]]:
+#             while True:
+#                 yield 0, 0, 0, 0
 
-        joints = ng_joint()
-        if self.JOINTS_0:
-            joints = self.JOINTS_0()
+#         joints = ng_joint()
+#         if self.JOINTS_0:
+#             joints = self.JOINTS_0()
 
-        def ng_weight() -> Iterator[tuple[float, float, float, float]]:
-            while True:
-                yield 1, 0, 0, 0
+#         def ng_weight() -> Iterator[tuple[float, float, float, float]]:
+#             while True:
+#                 yield 1, 0, 0, 0
 
-        weights = ng_weight()
-        if self.WEIGHTS_0:
-            weights = self.WEIGHTS_0()
+#         weights = ng_weight()
+#         if self.WEIGHTS_0:
+#             weights = self.WEIGHTS_0()
 
-        while True:
-            try:
-                p = next(pos)
-                n = next(nom)
-                j = next(joints)
-                w = next(weights)
-                yield p, n, j, w
-            except StopIteration:
-                break
+#         while True:
+#             try:
+#                 p = next(pos)
+#                 n = next(nom)
+#                 j = next(joints)
+#                 w = next(weights)
+#                 yield p, n, j, w
+#             except StopIteration:
+#                 break
 
 
+@dataclasses.dataclass
 class Submesh:
-    def __init__(
-        self,
-        vertices: VertexBuffer,
-        index_offset: int,
-        index_count: int,
-        material_index: int,
-    ):
-        self.vertices = vertices
-        self.index_offset = index_offset
-        self.index_count = index_count
-        self.vertex_offset = 0  # VRM shared vertex buffer
-        self.indices: Callable[[], Iterator[int]] | None = None
-        self.material_index = material_index
+    index_offset: int
+    index_count: int
+    material_index: int
 
-    def get_indices(self) -> Iterator[tuple[int, int, int]]:
-        assert self.indices
-        i = self.indices()
-        while True:
-            try:
-                i0 = next(i)
-                i1 = next(i)
-                i2 = next(i)
-                yield (i0, i1, i2)
-            except StopIteration:
-                break
+    # def get_indices(self) -> Iterator[tuple[int, int, int]]:
+    #     assert self.indices
+    #     i = self.indices()
+    #     while True:
+    #         try:
+    #             i0 = next(i)
+    #             i1 = next(i)
+    #             i2 = next(i)
+    #             yield (i0, i1, i2)
+    #         except StopIteration:
+    #             break
 
 
+@dataclasses.dataclass
 class Mesh:
-    def __init__(self, name: str):
-        self.name = name
-        self.submeshes: list[Submesh] = []
+    name: str
+    vertices: ctypes.Array[Vertex]
+    boneweights: ctypes.Array[Bdef4] | None
+    indices: ctypes.Array[ctypes.c_uint16]
+    submeshes: list[Submesh]
+
+    def __hash__(self) -> int:
+        return hash(self.name)
 
 
 class ExportMesh:

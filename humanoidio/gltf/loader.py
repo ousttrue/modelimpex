@@ -1,7 +1,8 @@
 from typing import Any
+import ctypes
 import pathlib
 import json
-from .mesh import Submesh, VertexBuffer, Mesh
+from .mesh import Submesh, Mesh
 from .glb import get_glb_chunks
 from .accessor_util import GltfAccessor
 from .coordinate import Coordinate, Conversion
@@ -9,6 +10,7 @@ from .node import Node, Skin
 from .humanoid import HumanoidBones
 from . import gltf_json_type
 from .material import Material, Texture
+from .types import Vertex, Bdef4, Float2, Float3, Float4
 
 
 class Vrm0:
@@ -114,29 +116,78 @@ class Loader:
                     except Exception:
                         pass
 
-    def _load_mesh(self, data: GltfAccessor, i: int, m: gltf_json_type.Mesh):
-        mesh = Mesh(m.get("name", f"mesh{i}"))
+    # def _load_mesh(self, data: GltfAccessor, i: int, m: gltf_json_type.Mesh):
+    #     mesh = Mesh(m.get("name", f"mesh{i}"))
 
-        index_offset = 0
-        vertex_offset = 0
+    #     index_offset = 0
+    #     vertex_offset = 0
+    #     for prim in m["primitives"]:
+    #         match prim:
+    #             case {"indices": int(indices), "material": material}:
+    #                 count = data.accessors[indices]["count"]
+    #                 sm = Submesh(VertexBuffer(), index_offset, count, material)
+    #                 sm.vertex_offset = vertex_offset
+    #                 vertex_offset += data.accessors[prim["attributes"]["POSITION"]][
+    #                     "count"
+    #                 ]
+    #                 index_offset += count
+
+    #                 mesh.submeshes.append(sm)
+    #                 for k, v in prim["attributes"].items():
+    #                     sm.vertices.set_attribute(k, data.accessor_generator(v))
+    #                 sm.indices = data.accessor_generator(prim["indices"])
+    #             case _:
+    #                 raise RuntimeError("no primitive.indices or material")
+
+    #     return mesh
+
+    def _load_mesh(self, data: GltfAccessor, i: int, m: gltf_json_type.Mesh) -> Mesh:
+        index_count = 0
+        vertex_count = 0
+        submeshes: list[Submesh] = []
         for prim in m["primitives"]:
             match prim:
-                case {"indices": int(indices), "material": material}:
-                    count = data.accessors[indices]["count"]
-                    sm = Submesh(VertexBuffer(), index_offset, count, material)
-                    sm.vertex_offset = vertex_offset
-                    vertex_offset += data.accessors[prim["attributes"]["POSITION"]][
+                case {"indices": int(indices_accessor), "material": int(material)}:
+                    count = data.accessors[indices_accessor]["count"]
+                    sm = Submesh(index_count, count, material)
+                    submeshes.append(sm)
+                    vertex_count += data.accessors[prim["attributes"]["POSITION"]][
                         "count"
                     ]
-                    index_offset += count
-
-                    mesh.submeshes.append(sm)
-                    for k, v in prim["attributes"].items():
-                        sm.vertices.set_attribute(k, data.accessor_generator(v))
-                    sm.indices = data.accessor_generator(prim["indices"])
+                    index_count += count
+                    # for k, v in prim["attributes"].items():
+                    #     sm.vertices.set_attribute(k, data.accessor_generator(v))
+                    # sm.indices = data.accessor_generator(prim["indices"])
                 case _:
                     raise RuntimeError("no primitive.indices or material")
 
+        vertices = (Vertex * vertex_count)()
+        boneweights = (Bdef4 * vertex_count)()
+        indices = (ctypes.c_uint16 * index_count)()
+
+        vertex_offset = 0
+        index_offset = 0
+        for prim in m["primitives"]:
+            match prim:
+                case {"indices": int(indices_accessor)}:
+                    sub_positions = data.get_typed_accessor(
+                        Float3, prim["attributes"]["POSITION"]
+                    )
+                    for i, position in enumerate(sub_positions):
+                        vertices[vertex_offset + i].position = position
+
+                    sub_indices = data.get_index_accessor(indices_accessor)
+                    for i, index in enumerate(sub_indices):
+                        indices[index_offset + i] = vertex_offset + index
+
+                    vertex_offset += len(sub_positions)
+                    index_offset += len(sub_indices)
+                case _:
+                    pass
+
+        mesh = Mesh(
+            m.get("name", f"mesh{i}"), vertices, boneweights, indices, submeshes
+        )
         return mesh
 
     def _load_node(self, i: int, n: gltf_json_type.Node):

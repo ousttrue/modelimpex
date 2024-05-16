@@ -1,8 +1,10 @@
+from typing import Iterable, Iterator, Any, TypeVar, Callable, Type
 import ctypes
 import array
 from enum import IntEnum
-from typing import Iterable, Iterator, Any, TypeVar, Callable
+from .types import Float3
 from . import gltf_json_type
+
 
 T = TypeVar("T")
 
@@ -189,6 +191,49 @@ class GltfAccessor:
                 return mime, self.bufferview_bytes(bufferView)
             case _:
                 raise RuntimeError("invalid image")
+
+    def get_typed_accessor(self, t: Type[T], accessor_index: int) -> ctypes.Array[T]:
+        accessor = self.accessors[accessor_index]
+        if t == Float3:
+            assert accessor["type"] == "VEC3"
+            assert accessor["componentType"] == 5126
+        elif t == ctypes.c_uint16:
+            assert accessor["type"] == "SCALAR"
+            assert accessor["componentType"] == 5123
+        elif t == ctypes.c_int32:
+            assert accessor["type"] == "SCALAR"
+            assert accessor["componentType"] == 5125
+        else:
+            raise NotImplementedError()
+
+        array_type = t * accessor["count"]
+        match accessor:
+            case {"bufferView": int(bufferview_index)}:
+                data = self.bufferview_bytes(bufferview_index)
+                return array_type.from_buffer_copy(data)
+            case _:
+                raise NotImplementedError()
+
+    def get_index_accessor(
+        self, accessor_index: int
+    ) -> ctypes.Array[ctypes.c_uint16] | ctypes.Array[ctypes.c_int32]:
+        """
+        BYTE = 5120
+        UNSIGNED_BYTE = 5121
+        SHORT = 5122
+        UNSIGNED_SHORT = 5123
+        UNSIGNED_INT = 5125
+        FLOAT = 5126
+        """
+        accessor = self.accessors[accessor_index]
+        assert accessor["type"] == "SCALAR"
+        match accessor["componentType"]:
+            case 5122 | 5123:
+                return self.get_typed_accessor(ctypes.c_uint16, accessor_index)
+            case 5125:
+                return self.get_typed_accessor(ctypes.c_int32, accessor_index)
+            case _:
+                raise NotImplementedError()
 
     def accessor_generator(self, index: int) -> Callable[[], Iterator[Any]]:
         accessor = self.accessors[index]

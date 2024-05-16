@@ -1,6 +1,13 @@
 import ctypes
 
 
+class Float2(ctypes.Structure):
+    _fields_ = [
+        ("x", ctypes.c_float),
+        ("y", ctypes.c_float),
+    ]
+
+
 class Float3(ctypes.Structure):
     _fields_ = [
         ("x", ctypes.c_float),
@@ -22,4 +29,19 @@ class Float4(ctypes.Structure):
         ("y", ctypes.c_float),
         ("z", ctypes.c_float),
         ("w", ctypes.c_float),
+    ]
+
+
+class Vertex(ctypes.Structure):
+    _fields_ = [
+        ("position", Float3),
+        ("normal", Float3),
+        ("uv", Float2),
+    ]
+
+
+class Bdef4(ctypes.Structure):
+    _fields_ = [
+        ("joints", Float4),
+        ("weights", Float4),
     ]

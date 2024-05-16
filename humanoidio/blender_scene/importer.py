@@ -1,5 +1,6 @@
-import pathlib
 from typing import Callable, Iterator, cast
+import ctypes
+import pathlib
 import math
 import bpy
 import mathutils  # type: ignore
@@ -294,7 +295,7 @@ class Importer:
         if not mesh_node.skin:
             return
         skin = mesh_node.skin
-        bone_names = [joint.name for joint in skin.joints]
+        bone_names: list[str] = [joint.name for joint in skin.joints]
         bl_object = self.obj_map[mesh_node]
         if not isinstance(bl_object.data, bpy.types.Mesh):
             return
@@ -302,30 +303,27 @@ class Importer:
         print(f"skinning: {bl_object}")
         vert_idx = [0]
 
-        def set_skinning(
-            j: Iterator[tuple[int, int, int, int]],
-            w: Iterator[tuple[float, float, float, float]],
-        ):
-            while True:
-                try:
-                    j0, j1, j2, j3 = next(j)
-                    w0, w1, w2, w3 = next(w)
-
-                    set_bone_weight(bl_object, vert_idx[0], bone_names[j0], w0)
-                    set_bone_weight(bl_object, vert_idx[0], bone_names[j1], w1)
-                    set_bone_weight(bl_object, vert_idx[0], bone_names[j2], w2)
-                    set_bone_weight(bl_object, vert_idx[0], bone_names[j3], w3)
-                    vert_idx[0] += 1
-
-                except StopIteration:
-                    break
-
-        for sm in mesh_node.mesh.submeshes:
-            assert sm.vertices.JOINTS_0
-            j = sm.vertices.JOINTS_0()
-            assert sm.vertices.WEIGHTS_0
-            w = sm.vertices.WEIGHTS_0()
-            set_skinning(j, w)
+        # for sm in mesh_node.mesh.submeshes:
+        #     assert sm.vertices.JOINTS_0
+        #     j = sm.vertices.JOINTS_0()
+        #     assert sm.vertices.WEIGHTS_0
+        #     w = sm.vertices.WEIGHTS_0()
+        # set_skinning(mesh_node.mesh.boneweights)
+        if mesh_node.mesh.boneweights:
+            for v in mesh_node.mesh.boneweights:
+                set_bone_weight(
+                    bl_object, vert_idx[0], bone_names[int(v.joints.x)], v.weights.x
+                )
+                set_bone_weight(
+                    bl_object, vert_idx[0], bone_names[int(v.joints.y)], v.weights.y
+                )
+                set_bone_weight(
+                    bl_object, vert_idx[0], bone_names[int(v.joints.z)], v.weights.z
+                )
+                set_bone_weight(
+                    bl_object, vert_idx[0], bone_names[int(v.joints.w)], v.weights.w
+                )
+                vert_idx[0] += 1
 
         modifier = bl_object.modifiers.new(name="Armature", type="ARMATURE")
         modifier.object = self.skin_map.get(skin)
