@@ -9,19 +9,12 @@ DEFORM_LAYER_NAME = "deform0"
 
 def create_vertices(bm: bmesh.types.BMesh, vertex_buffer: gltf.VertexBuffer):
 
-    deform_layer = None
-    if vertex_buffer.JOINTS_0:
-        deform_layer = bm.verts.layers.deform
-
     for pos, n, j, w in vertex_buffer.get_vertices():
         # position
         vert = bm.verts.new(pos)
         # normal
         if n:
             vert.normal = mathutils.Vector(n)
-        # bone weight
-        if deform_layer:
-            vert[deform_layer][j] = w
 
 
 def create_face(bm: bmesh.types.BMesh, submesh: gltf.Submesh):
