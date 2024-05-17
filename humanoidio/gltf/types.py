@@ -39,6 +39,8 @@ class Vertex(ctypes.Structure):
         ("uv", Float2),
     ]
 
+assert ctypes.sizeof(Vertex)==32
+
 
 class Bdef4(ctypes.Structure):
     _fields_ = [

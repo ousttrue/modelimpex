@@ -1,6 +1,9 @@
 from typing import Any
+import logging
 import pathlib
+import os
 import sys
+from OpenGL import GL
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -15,15 +18,15 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QAction
 from humanoidio import mmd, gltf
 from . import tree, table
+from .gl_scene import GlScene
 
 
 class Window(QMainWindow):
     def __init__(self):
         super().__init__(None)
         import glglue.pyside6
-        from glglue.scene.sample import SampleScene
 
-        self.scene = SampleScene()
+        self.scene = GlScene()
 
         self.glwidget = glglue.pyside6.Widget(self, render_gl=self.scene.render)
         self.setCentralWidget(self.glwidget)
@@ -85,22 +88,47 @@ class Window(QMainWindow):
         )
         self.table.setModel(table_model)
 
+        self.scene.set_model(loader)
+
         # self.setWindowTitle(loade)
 
 
 def main(path: pathlib.Path):
     import sys
 
-    app = QApplication(sys.argv)
-    window = Window()
-    window.show()
+    # app = QApplication(sys.argv)
+    # window = Window()
+    # window.show()
 
     model = mmd.from_path(path)
-    if model:
-        window.set(model)
+    # if model:
+    #     window.set(model)
 
-    sys.exit(app.exec())
+    # sys.exit(app.exec())
+
+    import glglue.glfw
+
+    scene = GlScene()
+    if model:
+        scene.set_model(model)
+
+    loop = glglue.glfw.LoopManager(
+        title="glfw sample", hint=glglue.glfw.GLContextHint()
+    )
+    print(GL.glGetString(GL.GL_VENDOR))
+    print(GL.glGetString(GL.GL_RENDERER))
+    print(GL.glGetString(GL.GL_VERSION))
+
+    while True:
+      
+        frame = loop.begin_frame()
+        if not frame:
+            break
+        scene.render(frame)
+        loop.end_frame()
 
 
 if __name__ == "__main__":
+    print(os.getpid())
+    logging.basicConfig(level=logging.DEBUG)
     main(pathlib.Path(sys.argv[1]))
