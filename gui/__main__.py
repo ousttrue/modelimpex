@@ -73,6 +73,7 @@ class Window(QMainWindow):
     def set(self, loader: gltf.Loader):
         tree_model = tree.GltfNodeModel(loader.nodes)
         self.tree.setModel(tree_model)
+        self.tree.expandAll()
 
         self.table.setItemDelegateForColumn(1, table.ImageDelegate(loader))
 
@@ -96,36 +97,16 @@ class Window(QMainWindow):
 def main(path: pathlib.Path):
     import sys
 
-    # app = QApplication(sys.argv)
-    # window = Window()
-    # window.show()
+    app = QApplication(sys.argv)
+    window = Window()
+    window.resize(1024, 768)
+    window.show()
 
     model = mmd.from_path(path)
-    # if model:
-    #     window.set(model)
-
-    # sys.exit(app.exec())
-
-    import glglue.glfw
-
-    scene = GlScene()
     if model:
-        scene.set_model(model)
+        window.set(model)
 
-    loop = glglue.glfw.LoopManager(
-        title="glfw sample", hint=glglue.glfw.GLContextHint()
-    )
-    print(GL.glGetString(GL.GL_VENDOR))
-    print(GL.glGetString(GL.GL_RENDERER))
-    print(GL.glGetString(GL.GL_VERSION))
-
-    while True:
-      
-        frame = loop.begin_frame()
-        if not frame:
-            break
-        scene.render(frame)
-        loop.end_frame()
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":

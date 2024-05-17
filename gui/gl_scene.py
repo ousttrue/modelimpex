@@ -15,29 +15,39 @@ LOGGER = logging.getLogger(__name__)
 
 PmdVS = """#version 330
 in vec3 a_pos;
+in vec3 a_normal;
 in vec2 a_uv;
 out vec2 v_uv;
+out vec3 v_color;
 uniform mediump mat4 u_view;
 uniform mediump mat4 u_projection;
 uniform mediump mat4 u_model;
 
 void main() {
-  float f = 1.58 / 20;
-  gl_Position = u_projection * u_view * u_model * vec4(a_pos.x * f, a_pos.y * f, a_pos.z * f, 1);  
-  v_uv = vec2(a_uv.x, a_uv.y);
+  gl_Position = u_projection * u_view * u_model * vec4(a_pos.x, a_pos.y, a_pos.z, 1);  
+  v_uv = a_uv;
+
+  // lambert
+  vec3 L = normalize(vec3(-1, - 2, 3));
+  vec3 N = normalize(a_normal);
+  float v = max(dot(N, L), 0.2);
+  v_color = vec3(v,v,v);
 }
 """
 
 
 PmdFS = """#version 330
 in vec2 v_uv;
+in vec3 v_color;
 out vec4 FragColor;
 uniform sampler2D u_texture;
 
 void main() {
     vec4 texel = texture(u_texture, v_uv);
+    //FragColor = vec4(v_color, 1) * texel;
     FragColor = texel;
-    //FragColor = vec4(1, 1, 1, 1);
+    FragColor.xyz += 0.0001 * v_color;
+    //FragColor = vec4(v_uv, 1, 1);
 }
 """
 
@@ -53,18 +63,18 @@ def check_gl_error():
 def texture_func(
     src: pathlib.Path | gltf.Texture | None, uniform: glo.UniformLocation
 ) -> Callable[[], None]:
-    LOGGER.debug(f"{src}")
     match src:
         case pathlib.Path():
             image = Image.open(src)  # type: ignore
+            LOGGER.info(f'"{src} => {image}')
             match image.mode:
                 case "RGBA":
-                    pixel_type = GL.GL_RGBA
+                    pass
                 case "RGB":
-                    pixel_type = GL.GL_RGB
+                    image.putalpha(alpha=255)
                 case _:
                     raise NotImplementedError()
-            texture = glo.Texture(image.width, image.height, image.tobytes(), pixel_type=pixel_type)  # type: ignore
+            texture = glo.Texture(image.width, image.height, image.tobytes())  # type: ignore
 
             def set_texture():
                 uniform.set_int(0)
@@ -104,6 +114,10 @@ class GlScene:
             return
 
         if len(self.drawables) == 0:
+            LOGGER.info(GL.glGetString(GL.GL_VENDOR))
+            LOGGER.info(GL.glGetString(GL.GL_RENDERER))
+            LOGGER.info(GL.glGetString(GL.GL_VERSION))
+
             line_shader = glo.Shader.load_from_pkg("glglue", "assets/line")
             assert line_shader
             self.drawables.append(
@@ -140,6 +154,12 @@ class GlScene:
                             3,
                             32,
                             0,
+                        ),
+                        glo.VertexLayout(
+                            glo.AttributeLocation.create(shader.program, "a_normal"),
+                            3,
+                            32,
+                            12,
                         ),
                         glo.VertexLayout(
                             glo.AttributeLocation.create(shader.program, "a_uv"),

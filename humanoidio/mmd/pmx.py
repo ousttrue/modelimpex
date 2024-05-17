@@ -1,4 +1,4 @@
-from typing import Iterator, Callable
+import ctypes
 import io
 import pathlib
 import logging
@@ -36,91 +36,47 @@ def pmx_to_gltf(src: pmx_model.Pmx, scale: float = 1.59 / 20) -> gltf.Loader:
             parent = loader.nodes[b.parent_index]
             parent.add_child(loader.nodes[i])
 
+    vertices = (gltf.Vertex * len(src.vertices))()
+    boneweights = (gltf.Bdef4 * len(src.vertices))()
+    for i, v in enumerate(src.vertices):
+        dst = vertices[i]
+        dst.position.x = v.position.x * scale
+        dst.position.y = v.position.y * scale
+        dst.position.z = -v.position.z * scale
+        dst.normal.x = v.normal.x
+        dst.normal.y = v.normal.y
+        dst.normal.z = -v.normal.z
+        dst.uv.x = v.uv.x
+        dst.uv.y = 1-v.uv.y
+        bdst = boneweights[i]
+        match v.deform:
+            case pmx_model.Bdef1() as d:
+                bdst.joints = gltf.Float4(d.index0, 0, 0, 0)
+            case pmx_model.Bdef2() as d:
+                bdst.joints = gltf.Float4(d.index0, d.index1, 0, 0)
+            case pmx_model.Bdef4() as d:
+                bdst.joints = gltf.Float4(d.index0, d.index1, d.index2, d.index3)
+            case pmx_model.Sdef() as d:
+                bdst.joints = gltf.Float4(d.index0, d.index1, 0, 0)
+        match v.deform:
+            case pmx_model.Bdef1() as d:
+                bdst.weights = gltf.Float4(1, 0, 0, 0)
+            case pmx_model.Bdef2() as d:
+                bdst.weights = gltf.Float4(d.weight0, 1 - d.weight0, 0, 0)
+            case pmx_model.Bdef4() as d:
+                bdst.weights = gltf.Float4(d.weight0, d.weight1, d.weight2, d.weight3)
+            case pmx_model.Sdef() as d:
+                bdst.weights = gltf.Float4(d.weight0, 1 - d.weight0, 0, 0)
+
+    indices = (ctypes.c_uint16 * len(src.indices))()
+    for i in range(0, len(src.indices), 3):
+        indices[i] = src.indices[i + 2]
+        indices[i + 1] = src.indices[i + 1]
+        indices[i + 2] = src.indices[i]
+
     mesh_node = gltf.Node("__mesh__")
-    mesh_node.mesh = gltf.Mesh("mesh")
-
-    def pos_gen() -> Iterator[tuple[float, float, float]]:
-        it = iter(src.vertices)
-        while True:
-            try:
-                v = next(it)
-                yield z_reverse(
-                    v.position.x * scale, v.position.y * scale, v.position.z * scale
-                )
-            except StopIteration:
-                break
-
-    def normal_gen() -> Iterator[tuple[float, float, float]]:
-        it = iter(src.vertices)
-        while True:
-            try:
-                v = next(it)
-                yield z_reverse(v.normal.x, v.normal.y, v.normal.z)
-            except StopIteration:
-                break
-
-    def tex_gen() -> Iterator[tuple[float, float]]:
-        it = iter(src.vertices)
-        while True:
-            try:
-                v = next(it)
-                yield v.uv.x, 1 - v.uv.y
-            except StopIteration:
-                break
-
-    def joint_gen() -> Iterator[tuple[int, int, int, int]]:
-        it = iter(src.vertices)
-        while True:
-            try:
-                v = next(it)
-                match v.deform:
-                    case pmx_model.Bdef1() as d:
-                        yield (d.index0, 0, 0, 0)
-                    case pmx_model.Bdef2() as d:
-                        yield (d.index0, d.index1, 0, 0)
-                    case pmx_model.Bdef4() as d:
-                        yield (d.index0, d.index1, d.index2, d.index3)
-                    case pmx_model.Sdef() as d:
-                        yield (d.index0, d.index1, 0, 0)
-            except StopIteration:
-                break
-
-    def weight_gen() -> Iterator[tuple[float, float, float, float]]:
-        it = iter(src.vertices)
-        while True:
-            try:
-                v = next(it)
-                match v.deform:
-                    case pmx_model.Bdef1() as d:
-                        yield (1, 0, 0, 0)
-                    case pmx_model.Bdef2() as d:
-                        yield (d.weight0, 1 - d.weight0, 0, 0)
-                    case pmx_model.Bdef4() as d:
-                        yield (d.weight0, d.weight1, d.weight2, d.weight3)
-                    case pmx_model.Sdef() as d:
-                        yield (d.weight0, 1 - d.weight0, 0, 0)
-            except StopIteration:
-                break
-
-    vertices = gltf.VertexBuffer()
-    vertices.POSITION = pos_gen
-    vertices.NORMAL = normal_gen
-    vertices.TEXCOORD_0 = tex_gen
-    vertices.JOINTS_0 = joint_gen
-    vertices.WEIGHTS_0 = weight_gen
-
-    def flip(
-        indices: list[int], offset: int, vertex_count: int
-    ) -> Callable[[], Iterator[int]]:
-        def gen() -> Iterator[int]:
-            for i in range(offset, offset + vertex_count, 3):
-                yield indices[i + 2]
-                yield indices[i + 1]
-                yield indices[i]
-
-        return gen
-
-    offset = 0
+    mesh_node.mesh = gltf.Mesh("mesh", vertices, boneweights, indices, [])
+    loader.meshes.append(mesh_node.mesh)
 
     assert src.path
     # texture
@@ -128,16 +84,14 @@ def pmx_to_gltf(src: pmx_model.Pmx, scale: float = 1.59 / 20) -> gltf.Loader:
         loader.textures.append(src.path.parent / t)
 
     # material
+    offset = 0
     for i, submesh in enumerate(src.materials):
         material = gltf.Material(f"{submesh.name}")
         if submesh.texture_index >= 0 and submesh.texture_index < len(src.textures):
             material.color_texture = submesh.texture_index
         loader.materials.append(material)
 
-        gltf_submesh = gltf.Submesh(
-            vertices, offset, submesh.vertex_count, submesh.texture_index
-        )
-        gltf_submesh.indices = flip(src.indices, offset, submesh.vertex_count)
+        gltf_submesh = gltf.Submesh(offset, submesh.vertex_count, submesh.texture_index)
         mesh_node.mesh.submeshes.append(gltf_submesh)
         offset += submesh.vertex_count
     mesh_node.skin = gltf.Skin()

@@ -73,12 +73,21 @@
         },
         // pyqt
         {
-            "name": "gui",
+            "name": "gui1",
             "type": "debugpy",
             "request": "launch",
             "module": "gui",
             "args": [
                 "${env:PMD_FILE}"
+            ]
+        },
+        {
+            "name": "gui2",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "gui",
+            "args": [
+                "${env:PMX_FILE}"
             ]
         },
     ]

@@ -55,8 +55,7 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
 
     mesh_node = gltf.Node("__mesh__")
     mesh_node.mesh = gltf.Mesh("mesh", vertices, boneweights, indices, [])
-    mesh_node.skin = gltf.Skin()
-    mesh_node.skin.joints = [node for node in loader.nodes]
+    loader.meshes.append(mesh_node.mesh)
 
     offset = 0
     for i, submesh in enumerate(src.materials):
@@ -69,10 +68,10 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
         gltf_submesh = gltf.Submesh(offset, submesh.vertex_count, i)
         mesh_node.mesh.submeshes.append(gltf_submesh)
         offset += submesh.vertex_count
-
+    mesh_node.skin = gltf.Skin()
+    mesh_node.skin.joints = [node for node in loader.nodes]
     loader.nodes.append(mesh_node)
     loader.roots.append(mesh_node)
-    loader.meshes.append(mesh_node.mesh)
 
     def relative(parent: gltf.Node, parent_pos: tuple[float, float, float]):
         for child in parent.children:
