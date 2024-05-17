@@ -1,8 +1,8 @@
 from typing import Callable
-import pathlib
 import logging
-from PIL import Image
+from PySide6 import QtGui
 from OpenGL import GL
+
 from glglue import glo
 from glglue.camera.mouse_camera import MouseCamera
 from glglue.drawable import Drawable, axes, grid
@@ -44,7 +44,7 @@ uniform sampler2D u_texture;
 
 void main() {
     vec4 texel = texture(u_texture, v_uv);
-    //FragColor = vec4(v_color, 1) * texel;
+    //FragColor = vec4(v_color * texel.xyz, 1);
     FragColor = texel;
     FragColor.xyz += 0.0001 * v_color;
     //FragColor = vec4(v_uv, 1, 1);
@@ -60,38 +60,36 @@ def check_gl_error():
         LOGGER.error(f"{err}")
 
 
-def texture_func(
-    src: pathlib.Path | gltf.Texture | None, uniform: glo.UniformLocation
-) -> Callable[[], None]:
-    match src:
-        case pathlib.Path():
-            image = Image.open(src)  # type: ignore
-            LOGGER.info(f'"{src} => {image}')
-            match image.mode:
-                case "RGBA":
-                    pass
-                case "RGB":
-                    image.putalpha(alpha=255)
-                case _:
-                    raise NotImplementedError()
-            texture = glo.Texture(image.width, image.height, image.tobytes())  # type: ignore
+def create_texture(image: QtGui.QImage) -> glo.Texture:
+    match image.format():
+        case QtGui.QImage.Format.Format_RGB32:
 
-            def set_texture():
-                uniform.set_int(0)
-                GL.glActiveTexture(GL.GL_TEXTURE0)  # type: ignore
-                texture.bind()
+            image = image.convertToFormat(QtGui.QImage.Format.Format_RGBA8888)
 
-            return set_texture
+            texture = glo.Texture(
+                image.width(),
+                image.height(),
+                image.constBits(),
+                pixel_type=GL.GL_RGBA,
+            )
 
-        case gltf.Texture():
-            raise NotImplementedError()
+            return texture
 
-        case None:
+        case QtGui.QImage.Format.Format_ARGB32_Premultiplied:  # alpha blend ?
 
-            def no_texture():
-                GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+            image = image.convertToFormat(QtGui.QImage.Format.Format_RGBA8888)
 
-            return no_texture
+            texture = glo.Texture(
+                image.width(),
+                image.height(),
+                image.constBits(),
+                pixel_type=GL.GL_RGBA,
+            )
+
+            return texture
+
+        case _ as f:
+            raise RuntimeError()
 
 
 class GlScene:
@@ -100,6 +98,7 @@ class GlScene:
         self.mouse_camera = MouseCamera()
         self.drawables: list[Drawable] = []
         self.model_src: gltf.loader.Loader | None = None
+        self.images: list[QtGui.QImage] = []
         self.model_drawable: Drawable | None = None
         self.is_shutdown = False
         self.clear_color = (0.3, 0.4, 0.5, 1)
@@ -175,22 +174,43 @@ class GlScene:
                 props = shader.create_props(self.mouse_camera.camera)
                 u_texture = glo.UniformLocation.create(shader.program, "u_texture")
 
+                textures: list[glo.Texture] = [
+                    create_texture(image) for image in self.images
+                ]
+
+                def get_texture_func(color_texture: int | None) -> Callable[[], None]:
+                    if color_texture != None:
+                        texture = textures[color_texture]
+
+                        def set_texture():
+                            u_texture.set_int(0)
+                            GL.glActiveTexture(GL.GL_TEXTURE0)  # type: ignore
+                            texture.bind()
+
+                        return set_texture
+
+                    else:
+
+                        def no_texture():
+                            GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+
+                        return no_texture
+
                 for sm in mesh.submeshes:
                     material = self.model_src.materials[sm.material_index]
-                    texture: pathlib.Path | gltf.Texture | None = None
-                    if material.color_texture:
-                        texture = self.model_src.textures[material.color_texture]
+
                     self.model_drawable.push_submesh(
                         shader,
                         sm.index_count,
-                        props + [texture_func(texture, u_texture)],
+                        props + [get_texture_func(material.color_texture)],
                     )
 
                 LOGGER.info("create mesh drawable")
 
-    def set_model(self, src: gltf.loader.Loader) -> None:
+    def set_model(self, src: gltf.loader.Loader, images: list[QtGui.QImage]) -> None:
         self.model_drawable = None
         self.model_src = src
+        self.images = images
 
     def render(self, frame: glglue.frame_input.FrameInput):
         self.lazy_initialize()

@@ -1,21 +1,10 @@
 from typing import Callable, cast
 import pathlib
-from PySide6.QtWidgets import (
-    QStyledItemDelegate,
-    QStyleOptionViewItem,
-)
-from PySide6.QtCore import (
-    Qt,
-    QAbstractTableModel,
-    QModelIndex,
-    QPersistentModelIndex,
-    QRect,
-)
-from PySide6.QtGui import QPixmap, QPainter
+from PySide6 import QtWidgets, QtCore, QtGui
 from humanoidio import gltf
 
 
-class GltfMaterialModel(QAbstractTableModel):
+class GltfMaterialModel(QtCore.QAbstractTableModel):
     def __init__(
         self,
         items: list[gltf.Material],
@@ -27,88 +16,66 @@ class GltfMaterialModel(QAbstractTableModel):
         self.column_from_item = column_from_item
         self.items = items
 
-    def columnCount(self, parent: QModelIndex | QPersistentModelIndex) -> int:  # type: ignore
+    def columnCount(self, parent: QtCore.QModelIndex | QtCore.QPersistentModelIndex) -> int:  # type: ignore
         return len(self.headers)
 
-    def data(self, index: QModelIndex | QPersistentModelIndex, role: Qt.ItemDataRole) -> str | None:  # type: ignore
-        if role == Qt.DisplayRole:  # type: ignore
+    def data(self, index: QtCore.QModelIndex | QtCore.QPersistentModelIndex, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
+        if role == QtCore.Qt.DisplayRole:  # type: ignore
             if index.isValid():
                 item: gltf.Material = index.internalPointer()  # type: ignore
                 return self.column_from_item(item, index.column())
 
-    def headerData(self, section: int, orientation: Qt.Orientation, role: Qt.ItemDataRole) -> str | None:  # type: ignore
+    def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
         match orientation, role:
-            case Qt.Horizontal, Qt.DisplayRole:  # type: ignore
+            case QtCore.Qt.Horizontal, QtCore.Qt.DisplayRole:  # type: ignore
                 return self.headers[section]
             case _:
                 pass
 
     def index(  # type: ignore
-        self, row: int, column: int, parent: QModelIndex | QPersistentModelIndex
-    ) -> QModelIndex:
+        self,
+        row: int,
+        column: int,
+        parent: QtCore.QModelIndex | QtCore.QPersistentModelIndex,
+    ) -> QtCore.QModelIndex:
         assert not parent.isValid()
         childItem = self.items[row]
         return self.createIndex(row, column, childItem)
 
     def parent(  # type: ignore
         self,
-        child: QModelIndex | QPersistentModelIndex,
-    ) -> QModelIndex:
-        return QModelIndex()
+        child: QtCore.QModelIndex | QtCore.QPersistentModelIndex,
+    ) -> QtCore.QModelIndex:
+        return QtCore.QModelIndex()
 
-    def rowCount(self, parent: QModelIndex | QPersistentModelIndex) -> int:  # type: ignore
+    def rowCount(self, parent: QtCore.QModelIndex | QtCore.QPersistentModelIndex) -> int:  # type: ignore
         return len(self.items)
 
 
-class ImageDelegate(QStyledItemDelegate):
-    def __init__(self, loader: gltf.Loader):
+class ImageDelegate(QtWidgets.QStyledItemDelegate):
+    def __init__(self, textures: list[pathlib.Path], pixmaps: list[QtGui.QPixmap]):
         super().__init__()
-        self.loader = loader
-        self.tex_map: dict[gltf.Texture, QPixmap] = {}
-        self.path_map: dict[pathlib.Path, QPixmap] = {}
-
-    def get_or_create(self, item: pathlib.Path | gltf.Texture) -> QPixmap | None:
-        match item:
-            case pathlib.Path():
-                pixmap = self.path_map.get(item)
-                if pixmap:
-                    return pixmap
-
-                image = QPixmap()
-                image.load(str(item))  # type: ignore
-                self.path_map[item] = image
-                return image
-
-            case gltf.Texture():
-                pixmap = self.tex_map.get(item)
-                if pixmap:
-                    return pixmap
-
-                image = QPixmap()
-                image.loadFromData(item.data)  # type: ignore
-                self.tex_map[item] = image
-                return image
+        self.pixmaps = pixmaps
+        self.textures = textures
 
     def paint(
         self,
-        painter: QPainter,
-        option: QStyleOptionViewItem,
-        index: QModelIndex | QPersistentModelIndex,
+        painter: QtGui.QPainter,
+        option: QtWidgets.QStyleOptionViewItem,
+        index: QtCore.QModelIndex | QtCore.QPersistentModelIndex,
     ) -> None:
         if index.column() == 1:
             match index.internalPointer():  # type: ignore
-                case gltf.Material() as m:  # type: ignore
-                    if m.color_texture != None:
-                        pixmap = self.get_or_create(
-                            self.loader.textures[m.color_texture]
+                case pathlib.Path() as path:  # type: ignore
+                    index = self.textures.index(path)
+                    if index != -1:
+                        pixmap = self.pixmaps[index]
+                        # scale = 128 / pixmap.height()
+                        rect = cast(QtCore.QRect, option.rect)  # type: ignore
+                        painter.drawPixmap(
+                            rect.x(),
+                            rect.y(),
+                            rect.width(),
+                            rect.height(),
+                            pixmap,
                         )
-                        if pixmap:
-                            # scale = 128 / pixmap.height()
-                            rect = cast(QRect, option.rect)  # type: ignore
-                            painter.drawPixmap(
-                                rect.x(),
-                                rect.y(),
-                                rect.width(),
-                                rect.height(),
-                                pixmap,
-                            )

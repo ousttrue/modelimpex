@@ -10,8 +10,10 @@ def z_reverse(x: float, y: float, z: float) -> tuple[float, float, float]:
     return (x, y, -z)
 
 
-def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
-    loader = gltf.Loader()
+def pmd_to_gltf(
+    dir: pathlib.Path, src: pmd_model.Pmd, scale: float = 1.59 / 20
+) -> gltf.Loader:
+    loader = gltf.Loader(src.name)
 
     # create bones
     for b in src.bones:
@@ -57,13 +59,19 @@ def pmd_to_gltf(src: pmd_model.Pmd, scale: float = 1.59 / 20) -> gltf.Loader:
     mesh_node.mesh = gltf.Mesh("mesh", vertices, boneweights, indices, [])
     loader.meshes.append(mesh_node.mesh)
 
+    for i, submesh in enumerate(src.materials):
+        if submesh.texture_file:
+            texture_file = dir / submesh.texture_file
+            if texture_file not in loader.textures:
+                loader.textures.append(texture_file)
+
     offset = 0
     for i, submesh in enumerate(src.materials):
         material = gltf.Material(f"{src.name}.{i}")
-        if src.path and submesh.texture_file:
-            texutre_index = len(loader.textures)
-            loader.textures.append(src.path.parent / submesh.texture_file)
-            material.color_texture = texutre_index
+        if submesh.texture_file:
+            texture_file = dir / submesh.texture_file
+            texture_index = loader.textures.index(texture_file)
+            material.color_texture = texture_index
         loader.materials.append(material)
         gltf_submesh = gltf.Submesh(offset, submesh.vertex_count, i)
         mesh_node.mesh.submeshes.append(gltf_submesh)
@@ -95,5 +103,4 @@ def load_pmd(path: pathlib.Path, data: bytes) -> gltf.Loader | None:
     src = pmd_reader.read(io.BytesIO(data))  # type: ignore
     if src:
         print(src)
-        src.path = path
-        return pmd_to_gltf(src)
+        return pmd_to_gltf(path.parent, src)

@@ -15,8 +15,10 @@ def z_reverse(x: float, y: float, z: float) -> tuple[float, float, float]:
     return (x, y, -z)
 
 
-def pmx_to_gltf(src: pmx_model.Pmx, scale: float = 1.59 / 20) -> gltf.Loader:
-    loader = gltf.Loader()
+def pmx_to_gltf(
+    dir: pathlib.Path, src: pmx_model.Pmx, scale: float = 1.59 / 20
+) -> gltf.Loader:
+    loader = gltf.Loader(src.name)
 
     # create bones
     for b in src.bones:
@@ -47,7 +49,7 @@ def pmx_to_gltf(src: pmx_model.Pmx, scale: float = 1.59 / 20) -> gltf.Loader:
         dst.normal.y = v.normal.y
         dst.normal.z = -v.normal.z
         dst.uv.x = v.uv.x
-        dst.uv.y = 1-v.uv.y
+        dst.uv.y = 1 - v.uv.y
         bdst = boneweights[i]
         match v.deform:
             case pmx_model.Bdef1() as d:
@@ -78,10 +80,9 @@ def pmx_to_gltf(src: pmx_model.Pmx, scale: float = 1.59 / 20) -> gltf.Loader:
     mesh_node.mesh = gltf.Mesh("mesh", vertices, boneweights, indices, [])
     loader.meshes.append(mesh_node.mesh)
 
-    assert src.path
     # texture
     for t in src.textures:
-        loader.textures.append(src.path.parent / t)
+        loader.textures.append(dir / t)
 
     # material
     offset = 0
@@ -122,5 +123,4 @@ def load_pmx(path: pathlib.Path, data: bytes) -> gltf.Loader | None:
     src = pmx_reader.read(io.BytesIO(data))  # type: ignore
     if src:
         LOGGER.debug(src)
-        src.path = path
-        return pmx_to_gltf(src)
+        return pmx_to_gltf(path.parent, src)

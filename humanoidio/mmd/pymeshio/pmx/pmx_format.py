@@ -1382,7 +1382,6 @@ class Pmx(common.Diff):
     """
 
     __slots__ = [
-        "path",
         "version",
         "name",
         "english_name",
@@ -1407,7 +1406,6 @@ class Pmx(common.Diff):
         comment: str = "pymeshioで生成",
         english_comment: str = "created by pymeshio",
     ):
-        self.path: pathlib.Path | None = None
         self.version = version
         self.name = name
         self.english_name = english_name

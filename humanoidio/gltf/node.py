@@ -1,4 +1,5 @@
-from typing import List, Optional, Tuple, Union, NamedTuple, Iterator
+from typing import NamedTuple, Iterator
+import dataclasses
 from .mesh import Mesh, ExportMesh
 from .humanoid import HumanoidBones
 
@@ -8,23 +9,23 @@ class RotationConstraint(NamedTuple):
     weight: float
 
 
+@dataclasses.dataclass
 class Skin:
-    def __init__(self):
-        self.joints: List[Node] = []
+    joints: list["Node"] = dataclasses.field(default_factory=list)
 
 
+@dataclasses.dataclass
 class Node:
-    def __init__(self, name: str):
-        self.name = name
-        self.children: List[Node] = []
-        self.parent: Optional[Node] = None
-        self.translation: Tuple[float, float, float] = (0, 0, 0)
-        self.rotation: Tuple[float, float, float, float] = (0, 0, 0, 1)
-        self.scale: Tuple[float, float, float] = (1, 1, 1)
-        self.mesh: Union[Mesh, ExportMesh, None] = None
-        self.skin: Optional[Skin] = None
-        self.humanoid_bone: Optional[HumanoidBones] = None
-        self.constraint: Union[RotationConstraint, None] = None
+    name: str
+    children: list["Node"] = dataclasses.field(default_factory=list)
+    parent: "Node|None" = None
+    translation: tuple[float, float, float] = (0, 0, 0)
+    rotation: tuple[float, float, float, float] = (0, 0, 0, 1)
+    scale: tuple[float, float, float] = (1, 1, 1)
+    mesh: Mesh | ExportMesh | None = None
+    skin: Skin | None = None
+    humanoid_bone: HumanoidBones | None = None
+    constraint: RotationConstraint | None = None
 
     def add_child(self, child: "Node"):
         child.parent = self

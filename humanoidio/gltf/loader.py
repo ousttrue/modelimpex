@@ -1,4 +1,5 @@
 from typing import Any
+import dataclasses
 import ctypes
 import pathlib
 import json
@@ -10,27 +11,28 @@ from .node import Node, Skin
 from .humanoid import HumanoidBones
 from . import gltf_json_type
 from .material import Material, Texture
-from .types import Vertex, Bdef4, Float2, Float3, Float4
+from .types import Vertex, Bdef4, Float3
 
 
+@dataclasses.dataclass
 class Vrm0:
-    def __init__(self, src: dict[str, Any]):
-        self.data = src
+    data: dict[str, Any]
 
 
+@dataclasses.dataclass
 class Vrm1:
-    def __init__(self, src: dict[str, Any]):
-        self.data = src
+    data: dict[str, Any]
 
 
+@dataclasses.dataclass
 class Loader:
-    def __init__(self):
-        self.meshes: list[Mesh] = []
-        self.nodes: list[Node] = []
-        self.roots: list[Node] = []
-        self.vrm: Vrm0 | Vrm1 | None = None
-        self.textures: list[pathlib.Path | Texture] = []
-        self.materials: list[Material] = []
+    name: str
+    meshes: list[Mesh] = dataclasses.field(default_factory=list)
+    nodes: list[Node] = dataclasses.field(default_factory=list)
+    roots: list[Node] = dataclasses.field(default_factory=list)
+    vrm: Vrm0 | Vrm1 | None = None
+    textures: list[pathlib.Path | Texture] = dataclasses.field(default_factory=list)
+    materials: list[Material] = dataclasses.field(default_factory=list)
 
     def load(self, gltf: gltf_json_type.glTF, bin: bytes):
 
@@ -64,8 +66,6 @@ class Loader:
                         material.color_texture = index
                     case _:
                         pass
-
-        print(self.materials)
 
         #
         # mesh
@@ -226,7 +226,7 @@ def load_glb(
     json_chunk, bin_chunk = get_glb_chunks(data)
     gltf = json.loads(json_chunk)
 
-    loader = Loader()
+    loader = Loader(path.stem)
     loader.load(gltf, bin_chunk)
     src = Coordinate.GLTF
     if isinstance(loader.vrm, Vrm0):
