@@ -49,7 +49,7 @@ def pmx_to_gltf(
         dst.normal.y = v.normal.y
         dst.normal.z = -v.normal.z
         dst.uv.x = v.uv.x
-        dst.uv.y = 1 - v.uv.y
+        dst.uv.y = v.uv.y
         bdst = boneweights[i]
         match v.deform:
             case pmx_model.Bdef1() as d:
@@ -92,7 +92,7 @@ def pmx_to_gltf(
             material.color_texture = submesh.texture_index
         loader.materials.append(material)
 
-        gltf_submesh = gltf.Submesh(offset, submesh.vertex_count, submesh.texture_index)
+        gltf_submesh = gltf.Submesh(offset, submesh.vertex_count, i)
         mesh_node.mesh.submeshes.append(gltf_submesh)
         offset += submesh.vertex_count
     mesh_node.skin = gltf.Skin()
