@@ -1,11 +1,6 @@
 from typing import Protocol, Self, TypeVar, Generic, Callable
 from typing import TypeVar, Generic, Callable, cast, Protocol, Self
-from PySide6.QtCore import (
-    Qt,
-    QAbstractItemModel,
-    QModelIndex,
-    QPersistentModelIndex,
-)
+from PySide6 import QtCore
 from humanoidio import gltf
 
 
@@ -17,37 +12,41 @@ class NodeItem(Protocol):
 T = TypeVar("T", bound=NodeItem)
 
 
-class GenericModel(QAbstractItemModel, Generic[T]):
+class GenericModel(QtCore.QAbstractItemModel, Generic[T]):
     def __init__(
         self,
         root: T,
         headers: list[str],
-        column_from_item: Callable[[T, int], str],
+        display_column_from_item: Callable[[T, int], str],
+        # fg_column_from_item: Callable[[T, int], QtGui.Qbrush],
     ):
         super().__init__()
         self.headers = headers
-        self.column_from_item = column_from_item
+        self.column_from_item = display_column_from_item
         self.root = root
 
-    def columnCount(self, parent: QModelIndex | QPersistentModelIndex) -> int:  # type: ignore
+    def columnCount(self, parent: QtCore.QModelIndex | QtCore.QPersistentModelIndex) -> int:  # type: ignore
         return len(self.headers)
 
-    def data(self, index: QModelIndex | QPersistentModelIndex, role: Qt.ItemDataRole) -> str | None:  # type: ignore
-        if role == Qt.DisplayRole:  # type: ignore
+    def data(self, index: QtCore.QModelIndex | QtCore.QPersistentModelIndex, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
+        if role == QtCore.Qt.DisplayRole:  # type: ignore
             if index.isValid():
                 item: T = index.internalPointer()  # type: ignore
                 return self.column_from_item(item, index.column())
 
-    def headerData(self, section: int, orientation: Qt.Orientation, role: Qt.ItemDataRole) -> str | None:  # type: ignore
+    def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
         match orientation, role:
-            case Qt.Horizontal, Qt.DisplayRole:  # type: ignore
+            case QtCore.Qt.Horizontal, QtCore.Qt.DisplayRole:  # type: ignore
                 return self.headers[section]
             case _:
                 pass
 
     def index(  # type: ignore
-        self, row: int, column: int, parent: QModelIndex | QPersistentModelIndex
-    ) -> QModelIndex:
+        self,
+        row: int,
+        column: int,
+        parent: QtCore.QModelIndex | QtCore.QPersistentModelIndex,
+    ) -> QtCore.QModelIndex:
         if parent.isValid():
             parentItem: T = parent.internalPointer()  # type: ignore
             childItem = parentItem.children[row]
@@ -59,17 +58,17 @@ class GenericModel(QAbstractItemModel, Generic[T]):
 
     def parent(  # type: ignore
         self,
-        child: QModelIndex | QPersistentModelIndex,
-    ) -> QModelIndex:
+        child: QtCore.QModelIndex | QtCore.QPersistentModelIndex,
+    ) -> QtCore.QModelIndex:
         if child.isValid():
             childItem = cast(T, child.internalPointer())  # type: ignore
             # row, parentItem = self.get_parent(childItem)
             if childItem and childItem.parent:
                 return self.createIndex(0, 0, childItem.parent)
 
-        return QModelIndex()
+        return QtCore.QModelIndex()
 
-    def rowCount(self, parent: QModelIndex | QPersistentModelIndex) -> int:  # type: ignore
+    def rowCount(self, parent: QtCore.QModelIndex | QtCore.QPersistentModelIndex) -> int:  # type: ignore
         if parent.isValid():
             parentItem: T = parent.internalPointer()  # type: ignore
             return len(parentItem.children)

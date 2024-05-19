@@ -225,6 +225,13 @@ class GlScene:
         # https://learnopengl.com/Advanced-OpenGL/Face-culling
         GL.glEnable(GL.GL_CULL_FACE)
 
+        # https://learnopengl.com/Advanced-OpenGL/Blending
+        GL.glEnable(GL.GL_BLEND)
+        # glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL.glBlendFuncSeparate(
+            GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA, GL.GL_ONE, GL.GL_ZERO
+        )
+
         # clear
         GL.glViewport(0, 0, frame.width, frame.height)  # type: ignore
         if frame.height == 0:
