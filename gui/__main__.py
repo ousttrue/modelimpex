@@ -13,13 +13,23 @@ from .gl_scene import GlScene
 LOGGER = logging.getLogger(__name__)
 
 
+def texture_to_pixmap(src: gltf.Texture) -> QtGui.QPixmap:
+    match src.data:
+        case gltf.TextureData():
+            raise NotImplementedError()
+        case pathlib.Path():
+            pixmap = QtGui.QPixmap()
+            pixmap.load(str(src.data))  # type: ignore
+            return pixmap
+
+
 class Window(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__(None)
-        import glglue.pyside6
+
+        import glglue.pyside6  # type: ignore
 
         self.scene = GlScene()
-
         self.glwidget = glglue.pyside6.Widget(self, render_gl=self.scene.render)
         self.setCentralWidget(self.glwidget)
 
@@ -54,7 +64,7 @@ class Window(QtWidgets.QMainWindow):
         self.menu_docks.addAction(self.bones.toggleViewAction())  # type: ignore
 
         # materials(list)
-        self.materials = QtWidgets.QDockWidget("materials", self)
+        self.materials = QtWidgets.QDockWidget("textures", self)
         self.materials.setWidget(self.table)
         self.addDockWidget(QtCore.Qt.DockWidgetArea.RightDockWidgetArea, self.materials)
         self.menu_docks.addAction(self.materials.toggleViewAction())  # type: ignore
@@ -71,18 +81,15 @@ class Window(QtWidgets.QMainWindow):
         pixmaps: list[QtGui.QPixmap] = []
         images: list[QtGui.QImage] = []
         for t in loader.textures:
-            match t:
-                case pathlib.Path():
-                    pixmap = QtGui.QPixmap()
-                    pixmap.load(str(t))
-                    pixmaps.append(pixmap)
-                    images.append(pixmap.toImage())
-                case _:
-                    raise RuntimeError()
+            pixmap = texture_to_pixmap(t)
+            pixmaps.append(pixmap)
+            images.append(pixmap.toImage())
 
-        self.table.setItemDelegateForColumn(1, table.ImageDelegate(loader.textures, pixmaps))
+        self.table.setItemDelegateForColumn(
+            1, table.ImageDelegate(loader.textures, pixmaps)
+        )
 
-        def get_col(item: pathlib.Path | gltf.Texture, col: int) -> Any:
+        def get_col(item: gltf.Texture, col: int) -> Any:
             match col:
                 case 0:
                     return item.name
@@ -98,7 +105,7 @@ class Window(QtWidgets.QMainWindow):
                 case _:
                     pass
 
-        table_model = table.GltfMaterialModel(
+        table_model = table.GltfTextureModel(
             loader.textures, ["name", "texture", "format"], get_col
         )
         self.table.setModel(table_model)

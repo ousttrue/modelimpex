@@ -3,31 +3,34 @@ import mathutils  # type: ignore
 from typing import Dict, Optional
 from .. import gltf
 
-EXCLUDE_HUMANOID_PARENT = [gltf.humanoid.HumanoidBones.head]
+EXCLUDE_HUMANOID_PARENT: list[gltf.humanoid.HumanoidBones] = ["head"]
 
-EXCLUDE_HUMANOID_CHILDREN = [
-    gltf.humanoid.HumanoidBones.hips,
-    gltf.humanoid.HumanoidBones.leftUpperLeg,
-    gltf.humanoid.HumanoidBones.rightUpperLeg,
-    gltf.humanoid.HumanoidBones.leftShoulder,
-    gltf.humanoid.HumanoidBones.rightShoulder,
-    gltf.humanoid.HumanoidBones.leftEye,
-    gltf.humanoid.HumanoidBones.rightEye,
+EXCLUDE_HUMANOID_CHILDREN: list[gltf.humanoid.HumanoidBones] = [
+    "hips",
+    "leftUpperLeg",
+    "rightUpperLeg",
+    "leftShoulder",
+    "rightShoulder",
+    "leftEye",
+    "rightEye",
     #
-    gltf.humanoid.HumanoidBones.leftThumbProximal,
-    gltf.humanoid.HumanoidBones.leftIndexProximal,
-    gltf.humanoid.HumanoidBones.leftMiddleProximal,
-    gltf.humanoid.HumanoidBones.leftRingProximal,
-    gltf.humanoid.HumanoidBones.leftLittleProximal,
+    "leftThumbProximal",
+    "leftIndexProximal",
+    "leftMiddleProximal",
+    "leftRingProximal",
+    "leftLittleProximal",
     #
-    gltf.humanoid.HumanoidBones.rightThumbProximal,
-    gltf.humanoid.HumanoidBones.rightIndexProximal,
-    gltf.humanoid.HumanoidBones.rightMiddleProximal,
-    gltf.humanoid.HumanoidBones.rightRingProximal,
-    gltf.humanoid.HumanoidBones.rightLittleProximal,
+    "rightThumbProximal",
+    "rightIndexProximal",
+    "rightMiddleProximal",
+    "rightRingProximal",
+    "rightLittleProximal",
 ]
 
-EXCLUDE_OTHERS = ["J_Adj_L_FaceEyeSet", "J_Adj_R_FaceEyeSet"]
+EXCLUDE_OTHERS: list[str] = [
+    "J_Adj_L_FaceEyeSet",
+    "J_Adj_R_FaceEyeSet",
+]
 
 
 class BoneConnector:
@@ -82,8 +85,8 @@ class BoneConnector:
                     bl_parent.tail = bl_bone.head + mathutils.Vector((0, 0, 1e-4))
 
                 if parent and (
-                    parent.humanoid_bone == gltf.humanoid.HumanoidBones.leftShoulder
-                    or parent.humanoid_bone == gltf.humanoid.HumanoidBones.rightShoulder
+                    parent.humanoid_bone == "leftShoulder"
+                    or parent.humanoid_bone == "rightShoulder"
                 ):
                     # https://blenderartists.org/t/rigify-error-generation-has-thrown-an-exception-but-theres-no-exception-message/1228840
                     pass
@@ -122,7 +125,7 @@ class BoneConnector:
 def connect_bones(bones: Dict[gltf.Node, bpy.types.EditBone]):
 
     nodes = bones.keys()
-    roots = []
+    roots: list[gltf.Node] = []
 
     for node in nodes:
         if not node.parent:

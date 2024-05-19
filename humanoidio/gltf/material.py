@@ -1,10 +1,19 @@
 from typing import NamedTuple
+import pathlib
+
+
+class TextureData(NamedTuple):
+    name: str
+    data: bytes
+    mime: str
 
 
 class Texture(NamedTuple):
-    name: str
-    mime: str
-    data: bytes
+    data: TextureData | pathlib.Path
+
+    @property
+    def name(self) -> str:
+        return self.data.name
 
 
 class Material:

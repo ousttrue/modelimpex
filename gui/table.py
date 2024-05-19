@@ -1,13 +1,12 @@
 from typing import Callable, cast
-import pathlib
 from PySide6 import QtWidgets, QtCore, QtGui
 from humanoidio import gltf
 
 
-class GltfMaterialModel(QtCore.QAbstractTableModel):
+class GltfTextureModel(QtCore.QAbstractTableModel):
     def __init__(
         self,
-        items: list[gltf.Material],
+        items: list[gltf.Texture],
         headers: list[str],
         column_from_item: Callable[[gltf.Material, int], str],
     ):
@@ -53,10 +52,10 @@ class GltfMaterialModel(QtCore.QAbstractTableModel):
 
 
 class ImageDelegate(QtWidgets.QStyledItemDelegate):
-    def __init__(self, textures: list[pathlib.Path], pixmaps: list[QtGui.QPixmap]):
+    def __init__(self, textures: list[gltf.Texture], pixmaps: list[QtGui.QPixmap]):
         super().__init__()
-        self.pixmaps = pixmaps
         self.textures = textures
+        self.pixmaps = pixmaps
 
     def paint(
         self,
@@ -65,17 +64,15 @@ class ImageDelegate(QtWidgets.QStyledItemDelegate):
         index: QtCore.QModelIndex | QtCore.QPersistentModelIndex,
     ) -> None:
         if index.column() == 1:
-            match index.internalPointer():  # type: ignore
-                case pathlib.Path() as path:  # type: ignore
-                    index = self.textures.index(path)
-                    if index != -1:
-                        pixmap = self.pixmaps[index]
-                        # scale = 128 / pixmap.height()
-                        rect = cast(QtCore.QRect, option.rect)  # type: ignore
-                        painter.drawPixmap(
-                            rect.x(),
-                            rect.y(),
-                            rect.width(),
-                            rect.height(),
-                            pixmap,
-                        )
+            item = cast(gltf.Texture, index.internalPointer())
+            texture_index = self.textures.index(item)
+            if texture_index != -1:
+                pixmap = self.pixmaps[texture_index]
+                rect = cast(QtCore.QRect, option.rect)  # type: ignore
+                painter.drawPixmap(
+                    rect.x(),
+                    rect.y(),
+                    rect.width(),
+                    rect.height(),
+                    pixmap,
+                )

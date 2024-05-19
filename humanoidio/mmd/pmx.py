@@ -82,7 +82,7 @@ def pmx_to_gltf(
 
     # texture
     for t in src.textures:
-        loader.textures.append(dir / t)
+        loader.textures.append(gltf.Texture(dir / t))
 
     # material
     offset = 0

@@ -4,7 +4,7 @@ from .coordinate import Coordinate, Conversion
 from .types import Float2, Float3, Float4, Vertex, Bdef4
 from .exporter import AnimationChannelTargetPath, Animation
 from . import humanoid
-from .material import Material, Texture
+from .material import Material, Texture, TextureData
 
 __all__ = [
     "Node",
@@ -21,6 +21,7 @@ __all__ = [
     "humanoid",
     "Material",
     "Texture",
+    "TextureData",
     "Float2",
     "Float3",
     "Float4",

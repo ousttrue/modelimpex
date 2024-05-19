@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, NamedTuple
 import dataclasses
 import ctypes
 import pathlib
@@ -10,18 +10,31 @@ from .coordinate import Coordinate, Conversion
 from .node import Node, Skin
 from .humanoid import HumanoidBones
 from . import gltf_json_type
-from .material import Material, Texture
+from .material import Material, Texture, TextureData
 from .types import Vertex, Bdef4, Float3
+
+
+class HumanBone(NamedTuple):
+    bone_name: HumanoidBones
+    node: int
 
 
 @dataclasses.dataclass
 class Vrm0:
-    data: dict[str, Any]
+    human_bones: list[HumanBone]
+
+    @staticmethod
+    def from_vrm0_dict(data: dict[str, Any]) -> "Vrm0":
+        return Vrm0(data["humanoid"]["humanBones"])
 
 
 @dataclasses.dataclass
 class Vrm1:
-    data: dict[str, Any]
+    humanbones: list[HumanBone]
+
+    @staticmethod
+    def from_vrm1_dict(data: dict[str, Any]) -> "Vrm1":
+        raise NotImplementedError()
 
 
 @dataclasses.dataclass
@@ -31,7 +44,7 @@ class Loader:
     nodes: list[Node] = dataclasses.field(default_factory=list)
     roots: list[Node] = dataclasses.field(default_factory=list)
     vrm: Vrm0 | Vrm1 | None = None
-    textures: list[pathlib.Path | Texture] = dataclasses.field(default_factory=list)
+    textures: list[Texture] = dataclasses.field(default_factory=list)
     materials: list[Material] = dataclasses.field(default_factory=list)
 
     def load(self, gltf: gltf_json_type.glTF, bin: bytes):
@@ -47,7 +60,11 @@ class Loader:
                     case {"source": source}:
                         mime, image_bytes = data.image_mime_bytes(source)
                         self.textures.append(
-                            Texture(t.get("name", f"texture.{i}"), mime, image_bytes)
+                            Texture(
+                                TextureData(
+                                    t.get("name", f"texture.{i}"), image_bytes, mime
+                                )
+                            )
                         )
                     case _:
                         raise RuntimeError()
@@ -103,16 +120,16 @@ class Loader:
         #
         if "extensions" in gltf:
             if "VRM" in gltf["extensions"]:
-                self.vrm = Vrm0(gltf["extensions"]["VRM"])
-                for bone in self.vrm.data["humanoid"]["humanBones"]:
-                    node = self.nodes[bone["node"]]
-                    node.humanoid_bone = HumanoidBones.from_name(bone["bone"])
+                self.vrm = Vrm0.from_vrm0_dict(gltf["extensions"]["VRM"])
+                for bone in self.vrm.human_bones:
+                    node = self.nodes[bone.node]
+                    node.humanoid_bone = bone.bone_name
             elif "VRMC_vrm" in gltf["extensions"]:
-                self.vrm = Vrm1(gltf["extensions"]["VRMC_vrm"])
-                for k, bone in self.vrm.data["humanoid"]["humanBones"].items():
-                    node = self.nodes[bone["node"]]
+                self.vrm = Vrm1.from_vrm1_dict(gltf["extensions"]["VRMC_vrm"])
+                for bone in self.vrm.humanbones:
+                    node = self.nodes[bone.node]
                     try:
-                        node.humanoid_bone = HumanoidBones.from_name(k)
+                        node.humanoid_bone = bone.bone_name
                     except Exception:
                         pass
 
