@@ -29,7 +29,6 @@ def pmx_to_gltf(
             b.position.x * scale, b.position.y * scale, b.position.z * scale
         )
         loader.nodes.append(node)
-        node.humanoid_bone = human_bones.guess_humanbone(b.name)
 
     # build tree
     for i, b in enumerate(src.bones):
@@ -56,21 +55,35 @@ def pmx_to_gltf(
         match v.deform:
             case pmx_model.Bdef1() as d:
                 bdst.joints = gltf.Float4(d.index0, 0, 0, 0)
-            case pmx_model.Bdef2() as d:
-                bdst.joints = gltf.Float4(d.index0, d.index1, 0, 0)
-            case pmx_model.Bdef4() as d:
-                bdst.joints = gltf.Float4(d.index0, d.index1, d.index2, d.index3)
-            case pmx_model.Sdef() as d:
-                bdst.joints = gltf.Float4(d.index0, d.index1, 0, 0)
-        match v.deform:
-            case pmx_model.Bdef1() as d:
                 bdst.weights = gltf.Float4(1, 0, 0, 0)
             case pmx_model.Bdef2() as d:
-                bdst.weights = gltf.Float4(d.weight0, 1 - d.weight0, 0, 0)
+                if d.weight0 == 1:
+                    bdst.joints = gltf.Float4(d.index0, 0, 0, 0)
+                    bdst.weights = gltf.Float4(1, 0, 0, 0)
+                elif d.weight0 == 0:
+                    bdst.joints = gltf.Float4(0, d.index1, 0, 0)
+                    bdst.weights = gltf.Float4(0, 1, 0, 0)
+                else:
+                    bdst.joints = gltf.Float4(d.index0, d.index1, 0, 0)
+                    bdst.weights = gltf.Float4(d.weight0, 1 - d.weight0, 0, 0)
             case pmx_model.Bdef4() as d:
                 bdst.weights = gltf.Float4(d.weight0, d.weight1, d.weight2, d.weight3)
+                bdst.joints = gltf.Float4(
+                    d.index0 if d.weight0 > 0 else 0,
+                    d.index1 if d.weight1 > 0 else 0,
+                    d.index2 if d.weight2 > 0 else 0,
+                    d.index3 if d.weight3 > 0 else 0,
+                )
             case pmx_model.Sdef() as d:
-                bdst.weights = gltf.Float4(d.weight0, 1 - d.weight0, 0, 0)
+                if d.weight0 == 1:
+                    bdst.joints = gltf.Float4(d.index0, 0, 0, 0)
+                    bdst.weights = gltf.Float4(1, 0, 0, 0)
+                elif d.weight0 == 0:
+                    bdst.joints = gltf.Float4(0, d.index1, 0, 0)
+                    bdst.weights = gltf.Float4(0, 1, 0, 0)
+                else:
+                    bdst.joints = gltf.Float4(d.index0, d.index1, 0, 0)
+                    bdst.weights = gltf.Float4(d.weight0, 1 - d.weight0, 0, 0)
 
         if bdst.weights.x > 0:
             loader.nodes[int(bdst.joints.x)].vertex_count += 1
@@ -126,6 +139,8 @@ def pmx_to_gltf(
 
     for root in loader.roots:
         relative(root, root.translation)
+
+    loader.guess_human_bones()
 
     return loader
 

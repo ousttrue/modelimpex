@@ -1,4 +1,5 @@
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, Callable
+import re
 
 LegBones: TypeAlias = (
     Literal["leftUpperLeg"]
@@ -66,25 +67,23 @@ HumanoidBones: TypeAlias = (
     Literal["hips"] | LegBones | BodyBones | ArmBones | FingerBones
 )
 
-EXCLUDE_NAMES: list[str] = [
-    "ik",
-    "IK",
-    "ＩＫ",
-    "親",
-    "ﾈｸﾀｲ",
-    "先",
-    "髪",
-    "アホ毛",
-    "捩",
-    "もみあげ",
-    "キャンセル",
-    "スカート",
-    "オフセ",
-    "袖",
-    "Point",
-    "リボン",
-    "自動",
-    "ｽｶｰﾄ",
+EXCLUDE_NAMES: list[Callable[[str], bool]] = [
+    lambda x: re.search(r"[iIＩ][kKＫ]", x) != None,
+    lambda x: "親" in x,
+    lambda x: "ﾈｸﾀｲ" in x,
+    lambda x: ("先" in x) and ("つま先" not in x),
+    lambda x: "髪" in x,
+    lambda x: "アホ毛" in x,
+    lambda x: "捩" in x,
+    lambda x: "もみあげ" in x,
+    lambda x: "キャンセル" in x,
+    lambda x: "スカート" in x,
+    lambda x: "オフセ" in x,
+    lambda x: "袖" in x,
+    lambda x: "Point" in x,
+    lambda x: "リボン" in x,
+    lambda x: "自動" in x,
+    lambda x: "ｽｶｰﾄ" in x,
 ]
 
 
@@ -99,7 +98,7 @@ def prefix(src: str, left: HumanoidBones, right: HumanoidBones) -> HumanoidBones
 
 def guess_humanbone(name: str) -> HumanoidBones | None:
     for ex in EXCLUDE_NAMES:
-        if ex in name:
+        if ex(name):
             return
     match name:
         case (
@@ -133,16 +132,16 @@ def guess_humanbone(name: str) -> HumanoidBones | None:
             | "左ひざD"
             | "右足首D"
             | "左足首D"
+            | "腰"
+            | "__mesh__"
         ):
             return
         case "下半身":
             return "hips"
-        case "腰":
-            return "spine"
         case "上半身":
-            return "chest"
+            return "spine"
         case "上半身2":
-            return "upperChest"
+            return "chest"
         case "首":
             return "neck"
         case "頭":
@@ -155,6 +154,8 @@ def guess_humanbone(name: str) -> HumanoidBones | None:
             return prefix(name, "leftLowerLeg", "rightLowerLeg")
         case "右足首" | "左足首":
             return prefix(name, "leftFoot", "rightFoot")
+        case "右つま先" | "左つま先":
+            return prefix(name, "leftToes", "rightToes")
         case "右肩" | "左肩":
             return prefix(name, "leftShoulder", "rightShoulder")
         case "右腕" | "左腕":

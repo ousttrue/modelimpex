@@ -1,4 +1,5 @@
 from typing import Any, NamedTuple
+import logging
 import dataclasses
 import ctypes
 import pathlib
@@ -8,14 +9,17 @@ from .glb import get_glb_chunks
 from .accessor_util import GltfAccessor
 from .coordinate import Coordinate, Conversion
 from .node import Node, Skin
-from ..human_bones import HumanoidBones
+from .. import human_bones
 from . import gltf_json_type
 from .material import Material, Texture, TextureData
 from .types import Vertex, Bdef4, Float3
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 class HumanBone(NamedTuple):
-    bone_name: HumanoidBones
+    bone_name: human_bones.HumanoidBones
     node: int
 
 
@@ -235,6 +239,113 @@ class Loader:
             node.mesh = self.meshes[n["mesh"]]
 
         return node
+
+    def get_bone(self, bone: human_bones.HumanoidBones) -> Node | None:
+        for node in self.nodes:
+            if node.humanoid_bone == bone:
+                return node
+
+    def guess_human_bones(self):
+        d_bones: dict[str, Node] = {}
+        for node in self.nodes:
+            node.humanoid_bone = human_bones.guess_humanbone(node.name)
+            match node.name:
+                case (
+                    "左足D"
+                    | "左ひざD"
+                    | "左足首D"
+                    | "左足先EX"
+                    | "右足D"
+                    | "右ひざD"
+                    | "右足首D"
+                    | "右足先EX"
+                ):
+                    d_bones[node.name] = node
+                case _:
+                    pass
+        if len(d_bones) == 8:
+
+            def remap_human_bone(bone: human_bones.HumanoidBones, d_bone: str):
+                node = self.get_bone(bone)
+                assert node
+                node.humanoid_bone = None
+                d_bones[d_bone].humanoid_bone = bone
+                assert node.removable()
+
+            remap_human_bone("leftUpperLeg", "左足D")
+            remap_human_bone("leftLowerLeg", "左ひざD")
+            remap_human_bone("leftFoot", "左足首D")
+            remap_human_bone("leftToes", "左足先EX")
+            remap_human_bone("rightUpperLeg", "右足D")
+            remap_human_bone("rightLowerLeg", "右ひざD")
+            remap_human_bone("rightFoot", "右足首D")
+            remap_human_bone("rightToes", "右足先EX")
+
+    def remove_bones(self):
+        remove_list: list[int] = []
+        for i, node in enumerate(self.nodes):
+            if node.removable():
+                remove_list.append(i)
+
+        # remove leaf nodes
+        removes: list[Node] = []
+        for i in reversed(remove_list):
+            node = self.nodes[i]
+            if i > 0 and len(node.children) == 0:
+                if node.parent:
+                    node.parent.remove_child(node)
+                removes.append(node)
+                LOGGER.debug(f"remove leaf: {node.name}")
+
+        # fix
+        index_map: dict[int, int] = {}
+        for i, node in enumerate([x for x in self.nodes]):
+            if node in removes:
+                self.nodes.remove(node)
+            else:
+                index_map[i] = len(index_map)
+
+        # TODO: 非ヒューマノイドボーンからヒューマノイドボーンへの weight 付け替え
+
+        # # replace index
+        # for i, node in enumerate(self.nodes):
+        #     if i in index_map:
+        #         if node.parent:
+        #             parent_index = self.nodes.index(node.parent)
+        #             node.parent = self.nodes[index_map[parent_index]]
+
+        #         for j, child in enumerate([x for x in node.children]):
+        #             child_index = self.nodes.index(child)
+        #             node.children[j] = self.nodes[index_map[child_index]]
+
+        #         if node.skin:
+        #             for j, joint in enumerate([x for x in node.skin.joints]):
+        #                 joint_index = self.nodes.index(joint)
+        #                 node.skin.joints[j] = self.nodes[index_map[joint_index]]
+
+        for mesh in self.meshes:
+            if mesh.boneweights:
+                for bdef in mesh.boneweights:
+                    bdef.joints.x = index_map[int(bdef.joints.x)]
+                    bdef.joints.y = index_map[int(bdef.joints.y)]
+                    bdef.joints.z = index_map[int(bdef.joints.z)]
+                    bdef.joints.w = index_map[int(bdef.joints.w)]
+
+    def _remove_bone(
+        self, node_map: dict[int, Node], i: int, keep_list: set[Node]
+    ) -> None:
+        node = node_map[i]
+        self.nodes.remove(node)
+
+        while node.parent:
+            if node.parent in keep_list:
+                break
+            # skip remove parent
+            assert node.parent.removable()
+            if node.parent.parent:
+                node.parent.parent.add_child(node)
+            else:
+                node.parent = None
 
 
 def load_glb(

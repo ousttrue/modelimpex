@@ -21,7 +21,6 @@ def pmd_to_gltf(
         node = gltf.Node(b.name)
         # world pos
         node.translation = z_reverse(b.pos.x * scale, b.pos.y * scale, b.pos.z * scale)
-        node.humanoid_bone = human_bones.guess_humanbone(b.name)
         loader.nodes.append(node)
 
     # build tree
@@ -103,6 +102,8 @@ def pmd_to_gltf(
 
     for root in loader.roots:
         relative(root, root.translation)
+
+    loader.guess_human_bones()
 
     return loader
 

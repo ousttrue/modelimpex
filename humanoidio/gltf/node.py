@@ -28,12 +28,25 @@ class Node:
     constraint: RotationConstraint | None = None
     vertex_count: int = 0
 
-    def add_child(self, child: "Node"):
+    def add_child(self, child: "Node") -> None:
         child.parent = self
         self.children.append(child)
+
+    def remove_child(self, child: "Node") -> None:
+        child.parent = None
+        self.children.remove(child)
 
     def traverse(self) -> Iterator["Node"]:
         yield self
         for child in self.children:
             for x in child.traverse():
                 yield x
+
+    def removable(self) -> bool:
+        if self.mesh:
+            return False
+        if self.humanoid_bone:
+            return False
+        if self.vertex_count > 0:
+            return False
+        return True

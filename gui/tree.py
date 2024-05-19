@@ -1,6 +1,6 @@
 from typing import Protocol, Self, TypeVar, Generic, Callable
 from typing import TypeVar, Generic, Callable, cast, Protocol, Self
-from PySide6 import QtCore
+from PySide6 import QtCore, QtGui
 from humanoidio import gltf
 
 
@@ -18,21 +18,29 @@ class GenericModel(QtCore.QAbstractItemModel, Generic[T]):
         root: T,
         headers: list[str],
         display_column_from_item: Callable[[T, int], str],
-        # fg_column_from_item: Callable[[T, int], QtGui.Qbrush],
+        fg_column_from_item: Callable[[T, int], QtGui.QBrush] | None = None,
     ):
         super().__init__()
         self.headers = headers
-        self.column_from_item = display_column_from_item
+        self.display_column_from_item = display_column_from_item
+        self.fg_column_from_item = fg_column_from_item
         self.root = root
 
     def columnCount(self, parent: QtCore.QModelIndex | QtCore.QPersistentModelIndex) -> int:  # type: ignore
         return len(self.headers)
 
     def data(self, index: QtCore.QModelIndex | QtCore.QPersistentModelIndex, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
-        if role == QtCore.Qt.DisplayRole:  # type: ignore
-            if index.isValid():
-                item: T = index.internalPointer()  # type: ignore
-                return self.column_from_item(item, index.column())
+        if not index.isValid():
+            return
+        item: T = index.internalPointer()  # type: ignore
+        match role:
+            case QtCore.Qt.ItemDataRole.DisplayRole:
+                return self.display_column_from_item(item, index.column())
+            case QtCore.Qt.ItemDataRole.BackgroundRole:
+                if self.fg_column_from_item:
+                    return self.fg_column_from_item(item, index.column())  # type: ignore
+            case _:
+                pass
 
     def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
         match orientation, role:
@@ -84,9 +92,11 @@ class GltfNodeModel(GenericModel[gltf.Node]):
         for node in nodes:
             if not node.parent:
                 root.add_child(node)
-        super().__init__(root, ["name", "humanoid", "vertex"], self.get_col)
+        super().__init__(
+            root, ["name", "humanoid", "vertex"], self.get_display, self.get_fg
+        )
 
-    def get_col(self, item: gltf.Node, col: int) -> str:
+    def get_display(self, item: gltf.Node, col: int) -> str:
         match col:
             case 0:
                 if item.humanoid_bone:
@@ -99,3 +109,8 @@ class GltfNodeModel(GenericModel[gltf.Node]):
                 return str(item.vertex_count)
             case _:
                 return ""
+
+    def get_fg(self, item: gltf.Node, col: int) -> QtGui.QColor:
+        if item.removable():
+            return QtGui.QColor(220, 220, 220)
+

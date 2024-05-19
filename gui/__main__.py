@@ -51,20 +51,20 @@ class Window(QtWidgets.QMainWindow):
         #
         # docks
         #
-        self.tree = QtWidgets.QTreeView()
-        self.table = QtWidgets.QTableView()
-        vertical_header = self.table.verticalHeader()
-        vertical_header.setSectionResizeMode(QtWidgets.QHeaderView.Fixed)  # type: ignore
-        vertical_header.setDefaultSectionSize(64)
 
         # bones(tree)
+        self.tree = QtWidgets.QTreeView()
+        self.tree.setIndentation(8)
         self.bones = QtWidgets.QDockWidget("bones", self)
         self.bones.setWidget(self.tree)
         self.addDockWidget(QtCore.Qt.DockWidgetArea.LeftDockWidgetArea, self.bones)
         self.menu_docks.addAction(self.bones.toggleViewAction())  # type: ignore
-        self.tree.setIndentation(8)
 
         # materials(list)
+        self.table = QtWidgets.QTableView()
+        vertical_header = self.table.verticalHeader()
+        vertical_header.setSectionResizeMode(QtWidgets.QHeaderView.Fixed)  # type: ignore
+        vertical_header.setDefaultSectionSize(64)
         self.materials = QtWidgets.QDockWidget("textures", self)
         self.materials.setWidget(self.table)
         self.addDockWidget(QtCore.Qt.DockWidgetArea.RightDockWidgetArea, self.materials)
@@ -74,6 +74,8 @@ class Window(QtWidgets.QMainWindow):
         LOGGER.info("file_open: not implemented")
 
     def set(self, loader: gltf.Loader):
+        loader.remove_bones()
+
         self.setWindowTitle(loader.name)
         tree_model = tree.GltfNodeModel(loader.nodes)
         self.tree.setModel(tree_model)
