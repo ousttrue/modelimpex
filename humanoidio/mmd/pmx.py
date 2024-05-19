@@ -5,6 +5,7 @@ import logging
 from .pymeshio.pmx import pmx_format as pmx_model
 from .pymeshio.pmx import pmx_reader as pmx_reader
 from .. import gltf
+from .. import human_bones
 
 
 LOGGER = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ def pmx_to_gltf(
             b.position.x * scale, b.position.y * scale, b.position.z * scale
         )
         loader.nodes.append(node)
+        node.humanoid_bone = human_bones.guess_humanbone(b.name)
 
     # build tree
     for i, b in enumerate(src.bones):
@@ -69,6 +71,15 @@ def pmx_to_gltf(
                 bdst.weights = gltf.Float4(d.weight0, d.weight1, d.weight2, d.weight3)
             case pmx_model.Sdef() as d:
                 bdst.weights = gltf.Float4(d.weight0, 1 - d.weight0, 0, 0)
+
+        if bdst.weights.x > 0:
+            loader.nodes[int(bdst.joints.x)].vertex_count += 1
+        if bdst.weights.y > 0:
+            loader.nodes[int(bdst.joints.y)].vertex_count += 1
+        if bdst.weights.z > 0:
+            loader.nodes[int(bdst.joints.z)].vertex_count += 1
+        if bdst.weights.w > 0:
+            loader.nodes[int(bdst.joints.w)].vertex_count += 1
 
     indices = (ctypes.c_uint16 * len(src.indices))()
     for i in range(0, len(src.indices), 3):

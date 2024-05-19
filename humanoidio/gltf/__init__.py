@@ -3,7 +3,7 @@ from .loader import load, Mesh, Submesh, Loader
 from .coordinate import Coordinate, Conversion
 from .types import Float2, Float3, Float4, Vertex, Bdef4
 from .exporter import AnimationChannelTargetPath, Animation
-from . import humanoid
+from .. import human_bones
 from .material import Material, Texture, TextureData
 
 __all__ = [
@@ -18,7 +18,7 @@ __all__ = [
     "Conversion",
     "AnimationChannelTargetPath",
     "Animation",
-    "humanoid",
+    "human_bones",
     "Material",
     "Texture",
     "TextureData",

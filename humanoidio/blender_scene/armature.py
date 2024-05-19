@@ -3,9 +3,9 @@ import mathutils  # type: ignore
 from typing import Dict, Optional
 from .. import gltf
 
-EXCLUDE_HUMANOID_PARENT: list[gltf.humanoid.HumanoidBones] = ["head"]
+EXCLUDE_HUMANOID_PARENT: list[gltf.human_bones.HumanoidBones] = ["head"]
 
-EXCLUDE_HUMANOID_CHILDREN: list[gltf.humanoid.HumanoidBones] = [
+EXCLUDE_HUMANOID_CHILDREN: list[gltf.human_bones.HumanoidBones] = [
     "hips",
     "leftUpperLeg",
     "rightUpperLeg",

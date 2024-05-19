@@ -8,7 +8,7 @@ class GltfTextureModel(QtCore.QAbstractTableModel):
         self,
         items: list[gltf.Texture],
         headers: list[str],
-        column_from_item: Callable[[gltf.Material, int], str],
+        column_from_item: Callable[[gltf.Texture, int], str],
     ):
         super().__init__()
         self.headers = headers
@@ -21,7 +21,7 @@ class GltfTextureModel(QtCore.QAbstractTableModel):
     def data(self, index: QtCore.QModelIndex | QtCore.QPersistentModelIndex, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
         if role == QtCore.Qt.DisplayRole:  # type: ignore
             if index.isValid():
-                item: gltf.Material = index.internalPointer()  # type: ignore
+                item: gltf.Texture = index.internalPointer()  # type: ignore
                 return self.column_from_item(item, index.column())
 
     def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore

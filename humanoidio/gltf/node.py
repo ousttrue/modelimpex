@@ -1,7 +1,7 @@
 from typing import NamedTuple, Iterator
 import dataclasses
 from .mesh import Mesh, ExportMesh
-from .humanoid import HumanoidBones
+from ..human_bones import HumanoidBones
 
 
 class RotationConstraint(NamedTuple):
@@ -26,6 +26,7 @@ class Node:
     skin: Skin | None = None
     humanoid_bone: HumanoidBones | None = None
     constraint: RotationConstraint | None = None
+    vertex_count: int = 0
 
     def add_child(self, child: "Node"):
         child.parent = self

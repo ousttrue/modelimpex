@@ -85,4 +85,18 @@ class GltfNodeModel(GenericModel[gltf.Node]):
         for node in nodes:
             if not node.parent:
                 root.add_child(node)
-        super().__init__(root, ["name"], lambda x, _: x.name)
+        super().__init__(root, ["name", "humanoid", "vertex"], self.get_col)
+
+    def get_col(self, item: gltf.Node, col: int) -> str:
+        match col:
+            case 0:
+                if item.humanoid_bone:
+                    return "🦴" + item.name
+                else:
+                    return item.name
+            case 1:
+                return item.humanoid_bone or ""
+            case 2:
+                return str(item.vertex_count)
+            case _:
+                return ""

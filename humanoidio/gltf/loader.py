@@ -8,7 +8,7 @@ from .glb import get_glb_chunks
 from .accessor_util import GltfAccessor
 from .coordinate import Coordinate, Conversion
 from .node import Node, Skin
-from .humanoid import HumanoidBones
+from ..human_bones import HumanoidBones
 from . import gltf_json_type
 from .material import Material, Texture, TextureData
 from .types import Vertex, Bdef4, Float3

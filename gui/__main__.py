@@ -62,6 +62,7 @@ class Window(QtWidgets.QMainWindow):
         self.bones.setWidget(self.tree)
         self.addDockWidget(QtCore.Qt.DockWidgetArea.LeftDockWidgetArea, self.bones)
         self.menu_docks.addAction(self.bones.toggleViewAction())  # type: ignore
+        self.tree.setIndentation(8)
 
         # materials(list)
         self.materials = QtWidgets.QDockWidget("textures", self)
@@ -83,7 +84,10 @@ class Window(QtWidgets.QMainWindow):
         for t in loader.textures:
             pixmap = texture_to_pixmap(t)
             pixmaps.append(pixmap)
-            images.append(pixmap.toImage())
+            image = pixmap.toImage()
+            # if image.format() == QtGui.QImage.Format.Format_ARGB32_Premultiplied:
+            #     image.convertToFormat(QtGui.QImage.Format.Format_RGBA8888)
+            images.append(image)
 
         self.table.setItemDelegateForColumn(
             1, table.ImageDelegate(loader.textures, pixmaps)

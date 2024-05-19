@@ -4,6 +4,7 @@ import pathlib
 from .pymeshio.pmd import pmd_format as pmd_model
 from .pymeshio.pmd import pmd_reader as pmd_reader
 from .. import gltf
+from .. import human_bones
 
 
 def z_reverse(x: float, y: float, z: float) -> tuple[float, float, float]:
@@ -20,6 +21,7 @@ def pmd_to_gltf(
         node = gltf.Node(b.name)
         # world pos
         node.translation = z_reverse(b.pos.x * scale, b.pos.y * scale, b.pos.z * scale)
+        node.humanoid_bone = human_bones.guess_humanbone(b.name)
         loader.nodes.append(node)
 
     # build tree
@@ -48,6 +50,10 @@ def pmd_to_gltf(
         bdst.joints.y = v.bone1 if v.bone1 != 65535 else 0
         bdst.weights.x = v.weight0 * 0.01
         bdst.weights.y = (100 - v.weight0) * 0.01
+        if bdst.weights.x > 0:
+            loader.nodes[int(bdst.joints.x)].vertex_count += 1
+        if bdst.weights.y > 0:
+            loader.nodes[int(bdst.joints.y)].vertex_count += 1
 
     indices = (ctypes.c_uint16 * len(src.indices))()
     for i in range(0, len(src.indices), 3):
@@ -62,16 +68,18 @@ def pmd_to_gltf(
     for i, submesh in enumerate(src.materials):
         if submesh.texture_file:
             texture_file = dir / submesh.texture_file
-            if texture_file not in loader.textures:
-                loader.textures.append(texture_file)
+            if all(x.data != texture_file for x in loader.textures):
+                loader.textures.append(gltf.Texture(texture_file))
 
     offset = 0
     for i, submesh in enumerate(src.materials):
         material = gltf.Material(f"{src.name}.{i}")
         if submesh.texture_file:
             texture_file = dir / submesh.texture_file
-            texture_index = loader.textures.index(texture_file)
-            material.color_texture = texture_index
+            for j, texture in enumerate(loader.textures):
+                if texture.data == texture_file:
+                    material.color_texture = j
+                    break
         loader.materials.append(material)
         gltf_submesh = gltf.Submesh(offset, submesh.vertex_count, i)
         mesh_node.mesh.submeshes.append(gltf_submesh)

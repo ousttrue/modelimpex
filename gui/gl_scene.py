@@ -223,7 +223,7 @@ class GlScene:
         GL.glDepthFunc(GL.GL_LESS)  # type: ignore
 
         # https://learnopengl.com/Advanced-OpenGL/Face-culling
-        # GL.glEnable(GL.GL_CULL_FACE)
+        GL.glEnable(GL.GL_CULL_FACE)
 
         # clear
         GL.glViewport(0, 0, frame.width, frame.height)  # type: ignore
