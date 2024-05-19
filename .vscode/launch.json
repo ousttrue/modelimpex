@@ -8,7 +8,7 @@
             "name": "import",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/import.py",
+            "program": "${workspaceFolder}/tests/test_bpy_import.py",
             "cwd": "${workspaceFolder}",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
@@ -88,6 +88,24 @@
             "module": "gui",
             "args": [
                 "${env:PMX_FILE}"
+            ]
+        },
+        {
+            "name": "gui3",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "gui",
+            "args": [
+                "${env:VRM0_FILE}"
+            ]
+        },
+        {
+            "name": "gui4",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "gui",
+            "args": [
+                "${env:VRM1_FILE}"
             ]
         },
     ]

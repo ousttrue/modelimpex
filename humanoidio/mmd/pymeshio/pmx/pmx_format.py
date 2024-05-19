@@ -1446,9 +1446,7 @@ class Pmx(common.Diff):
         self.joints: list[Joint] = []
 
     def __str__(self) -> str:
-        return '<pmx-{version} "{name}" {vertices}vertices>'.format(
-            version=self.version, name=self.english_name, vertices=len(self.vertices)
-        )
+        return f'<pmx-{self.version} "{self.name}" {len(self.vertices)}vertices {len(self.indices)}indices>'
 
     def __eq__(self, rhs: object) -> bool:
         match rhs:

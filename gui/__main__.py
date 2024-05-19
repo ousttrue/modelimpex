@@ -16,7 +16,9 @@ LOGGER = logging.getLogger(__name__)
 def texture_to_pixmap(src: gltf.Texture) -> QtGui.QPixmap:
     match src.data:
         case gltf.TextureData():
-            raise NotImplementedError()
+            pixmap = QtGui.QPixmap()
+            pixmap.loadFromData(src.data.data)
+            return pixmap
         case pathlib.Path():
             pixmap = QtGui.QPixmap()
             pixmap.load(str(src.data))  # type: ignore
@@ -126,9 +128,20 @@ def main(path: pathlib.Path):
     window.resize(1024, 768)
     window.show()
 
-    model = mmd.from_path(path)
-    if model:
-        window.set(model)
+    match path.suffix.lower():
+        case ".vrm":
+            model, _conversion = gltf.load(
+                path, path.read_bytes(), gltf.Coordinate.BLENDER_ROTATE
+            )
+            if model:
+                window.set(model)
+        case ".pmd" | ".pmx":
+            model = mmd.from_path(path)
+            if model:
+                window.set(model)
+
+        case _:
+            LOGGER.error(f"unknown: {path}")
 
     sys.exit(app.exec())
 

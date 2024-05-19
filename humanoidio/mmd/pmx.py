@@ -148,5 +148,5 @@ def pmx_to_gltf(
 def load_pmx(path: pathlib.Path, data: bytes) -> gltf.Loader | None:
     src = pmx_reader.read(io.BytesIO(data))  # type: ignore
     if src:
-        LOGGER.debug(src)
+        print(src)
         return pmx_to_gltf(path.parent, src)

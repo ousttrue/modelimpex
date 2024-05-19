@@ -1,10 +1,10 @@
-from typing import Callable, Iterator, cast
-import ctypes
+from typing import Callable, cast
 import pathlib
 import math
 import bpy
 import mathutils  # type: ignore
 from .. import gltf
+from .. import human_bones
 from .mesh import create_mesh
 from .armature import connect_bones
 
@@ -76,17 +76,17 @@ class Importer:
     def load(self, loader: gltf.Loader):
         textures: list[bpy.types.Image | None] = []
         for t in loader.textures:
-            match t:
+            match t.data:
                 case pathlib.Path():
-                    bl_image = bpy.data.images.load(str(t), check_existing=True)
+                    bl_image = bpy.data.images.load(str(t.data), check_existing=True)
                     textures.append(bl_image)
-                case gltf.Texture():
+                case gltf.TextureData() as data:
                     try:
                         from . import image_loader
 
-                        w, h, raw = image_loader.load(t.mime, t.data)
+                        w, h, raw = image_loader.load(data.mime, data.data)
                         bl_image = bpy.data.images.new(name=t.name, width=w, height=h)
-                        bl_image.pixels = raw
+                        bl_image.pixels = raw  # type: ignore
                         bl_image.update()
                         textures.append(bl_image)
                     except RuntimeError:
@@ -226,8 +226,8 @@ class Importer:
         # 2nd pass: tail, connect
         connect_bones(bones)
 
-        humaniod_map: dict[gltf.vrm.HumanoidBones, gltf.Node] = {}
-        for k, v in bones.items():
+        humaniod_map: dict[human_bones.HumanoidBones, gltf.Node] = {}
+        for k, _ in bones.items():
             if k.humanoid_bone:
                 humaniod_map[k.humanoid_bone] = k
 

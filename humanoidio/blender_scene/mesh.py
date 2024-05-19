@@ -28,9 +28,12 @@ def create_face(
         v0 = bm.verts[i0]
         v1 = bm.verts[i1]
         v2 = bm.verts[i2]
-        face = bm.faces.new((v0, v1, v2))
-        face.smooth = True  # use vertex normal
-        face.material_index = submesh.material_index
+        try:
+            face = bm.faces.new((v0, v1, v2))
+            face.smooth = True  # use vertex normal
+            face.material_index = submesh.material_index
+        except ValueError as e:
+            print(e)
 
 
 def get_or_create_uv_layer(bm: bmesh.types.BMesh) -> bmesh.types.BMLayerItem:

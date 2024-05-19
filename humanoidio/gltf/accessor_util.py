@@ -2,7 +2,7 @@ from typing import Iterable, Iterator, Any, TypeVar, Callable, Type
 import ctypes
 import array
 from enum import IntEnum
-from .types import Float3
+from .types import Float2, Float3, Float4
 from . import gltf_json_type
 
 
@@ -194,15 +194,21 @@ class GltfAccessor:
 
     def get_typed_accessor(self, t: Type[T], accessor_index: int) -> ctypes.Array[T]:
         accessor = self.accessors[accessor_index]
-        if t == Float3:
-            assert accessor["type"] == "VEC3"
-            assert accessor["componentType"] == 5126
-        elif t == ctypes.c_uint16:
+        if t == ctypes.c_uint16:
             assert accessor["type"] == "SCALAR"
             assert accessor["componentType"] == 5123
         elif t == ctypes.c_int32:
             assert accessor["type"] == "SCALAR"
             assert accessor["componentType"] == 5125
+        elif t == Float2:
+            assert accessor["type"] == "VEC2"
+            assert accessor["componentType"] == 5126
+        elif t == Float3:
+            assert accessor["type"] == "VEC3"
+            assert accessor["componentType"] == 5126
+        elif t == Float4:
+            assert accessor["type"] == "VEC4"
+            assert accessor["componentType"] == 5126
         else:
             raise NotImplementedError()
 

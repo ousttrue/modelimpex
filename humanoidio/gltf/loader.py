@@ -12,7 +12,7 @@ from .node import Node, Skin
 from .. import human_bones
 from . import gltf_json_type
 from .material import Material, Texture, TextureData
-from .types import Vertex, Bdef4, Float3
+from .types import Vertex, Bdef4, Float2, Float3, Float4
 
 
 LOGGER = logging.getLogger(__name__)
@@ -25,20 +25,25 @@ class HumanBone(NamedTuple):
 
 @dataclasses.dataclass
 class Vrm0:
-    human_bones: list[HumanBone]
+    human_bones: list[HumanBone] = dataclasses.field(default_factory=list)
 
     @staticmethod
     def from_vrm0_dict(data: dict[str, Any]) -> "Vrm0":
-        return Vrm0(data["humanoid"]["humanBones"])
+        return Vrm0(
+            [HumanBone(x["bone"], x["node"]) for x in data["humanoid"]["humanBones"]]
+        )
 
 
 @dataclasses.dataclass
 class Vrm1:
-    humanbones: list[HumanBone]
+    humanbones: list[HumanBone] = dataclasses.field(default_factory=list)
 
     @staticmethod
     def from_vrm1_dict(data: dict[str, Any]) -> "Vrm1":
-        raise NotImplementedError()
+        vrm1 = Vrm1()
+        for k, v in data["humanoid"]["humanBones"].items():
+            vrm1.humanbones.append(HumanBone(k, v["node"]))
+        return vrm1
 
 
 @dataclasses.dataclass
@@ -196,6 +201,13 @@ class Loader:
                     )
                     for i, position in enumerate(sub_positions):
                         vertices[vertex_offset + i].position = position
+
+                    sub_tex = data.get_typed_accessor(
+                        Float2, prim["attributes"]["TEXCOORD_0"]
+                    )
+                    if sub_tex:
+                        for i, uv in enumerate(sub_tex):
+                            vertices[vertex_offset + i].uv = uv
 
                     sub_indices = data.get_index_accessor(indices_accessor)
                     for i, index in enumerate(sub_indices):

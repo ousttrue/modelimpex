@@ -189,7 +189,8 @@ def guess_humanbone(name: str) -> HumanoidBones | None:
         case "右小指３" | "左小指３":
             return prefix(name, "leftLittleDistal", "rightLittleDistal")
         case _:
-            raise NotImplementedError(name)
+            # raise NotImplementedError(name)
+            print(f"unknown: {name}")
 
 
 # SPINE = [

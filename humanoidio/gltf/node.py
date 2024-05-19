@@ -9,9 +9,9 @@ class RotationConstraint(NamedTuple):
     weight: float
 
 
-@dataclasses.dataclass
 class Skin:
-    joints: list["Node"] = dataclasses.field(default_factory=list)
+    def __init__(self, joints: list["Node"] | None = None):
+        self.joints: list["Node"] = joints or []
 
 
 @dataclasses.dataclass
@@ -27,6 +27,9 @@ class Node:
     humanoid_bone: HumanoidBones | None = None
     constraint: RotationConstraint | None = None
     vertex_count: int = 0
+
+    def __hash__(self) -> int:
+        return hash(self.name)
 
     def add_child(self, child: "Node") -> None:
         child.parent = self
