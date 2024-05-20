@@ -142,31 +142,6 @@ class Loader:
                     except Exception:
                         pass
 
-    # def _load_mesh(self, data: GltfAccessor, i: int, m: gltf_json_type.Mesh):
-    #     mesh = Mesh(m.get("name", f"mesh{i}"))
-
-    #     index_offset = 0
-    #     vertex_offset = 0
-    #     for prim in m["primitives"]:
-    #         match prim:
-    #             case {"indices": int(indices), "material": material}:
-    #                 count = data.accessors[indices]["count"]
-    #                 sm = Submesh(VertexBuffer(), index_offset, count, material)
-    #                 sm.vertex_offset = vertex_offset
-    #                 vertex_offset += data.accessors[prim["attributes"]["POSITION"]][
-    #                     "count"
-    #                 ]
-    #                 index_offset += count
-
-    #                 mesh.submeshes.append(sm)
-    #                 for k, v in prim["attributes"].items():
-    #                     sm.vertices.set_attribute(k, data.accessor_generator(v))
-    #                 sm.indices = data.accessor_generator(prim["indices"])
-    #             case _:
-    #                 raise RuntimeError("no primitive.indices or material")
-
-    #     return mesh
-
     def _load_mesh(self, data: GltfAccessor, i: int, m: gltf_json_type.Mesh) -> Mesh:
         index_count = 0
         vertex_count = 0
@@ -258,7 +233,11 @@ class Loader:
                 return node
 
     def guess_human_bones(self):
+        for root in self.roots:
+            root.update_world_position()
+
         d_bones: dict[str, Node] = {}
+        center_upper_lower: dict[str, Node] = {}
         for node in self.nodes:
             node.humanoid_bone = human_bones.guess_humanbone(node.name)
             match node.name:
@@ -273,8 +252,12 @@ class Loader:
                     | "右足先EX"
                 ):
                     d_bones[node.name] = node
+                case "センター" | "上半身" | "下半身":
+                    center_upper_lower[node.name] = node
                 case _:
                     pass
+
+        # fix D bone
         if len(d_bones) == 8:
 
             def remap_human_bone(bone: human_bones.HumanoidBones, d_bone: str):
@@ -293,13 +276,89 @@ class Loader:
             remap_human_bone("rightFoot", "右足首D")
             remap_human_bone("rightToes", "右足先EX")
 
+        # fix upper lower
+        if len(center_upper_lower) == 3:
+            #  center
+            #    + upper
+            #    + lower
+            #      + leftUpperLeg
+            #      + rightUpperLeg
+            pass
+            # center
+            #   + lower(hips)
+            #     + upper
+            #     + leftUpperLeg
+            #     + rightUpperLeg
+            hips = center_upper_lower["下半身"]
+            assert hips.humanoid_bone == "hips"
+
+            left_upper_leg = self.get_bone("leftUpperLeg")
+            assert left_upper_leg
+            right_upper_leg = self.get_bone("rightUpperLeg")
+            assert right_upper_leg
+            hips.world_position = (
+                (left_upper_leg.world_position[0] + right_upper_leg.world_position[0])
+                / 2,
+                (left_upper_leg.world_position[1] + right_upper_leg.world_position[1])
+                / 2,
+                (left_upper_leg.world_position[2] + right_upper_leg.world_position[2])
+                / 2,
+            )
+
+            spine = self.get_bone("spine")
+            assert spine
+            hips.add_child(spine)
+
+        for root in self.roots:
+            root.local_from_world()
+
     def remove_bones(self):
+        for root in self.roots:
+            root.update_world_position()
+
+        removes = self._remove_leaf_bones()
+        self._remove_not_leaf_bones(removes)
+
+        # fix
+        index_map: dict[int, int] = {}
+        for i, node in enumerate([x for x in self.nodes]):
+            if node.name=='__mesh__':
+                continue
+            if node in removes:
+                self.nodes.remove(node)
+            else:
+                index_map[i] = len(index_map)
+
+        for i, node in enumerate([x for x in self.nodes]):
+            if node.skin:
+                skin_index_map: dict[int, int] = {}
+                for j, joint in enumerate([x for x in node.skin.joints]):
+                    if joint in removes:
+                        node.skin.joints.remove(joint)
+                    else:
+                        skin_index_map[j] = len(skin_index_map)
+                assert skin_index_map == index_map
+
+        for mesh in self.meshes:
+            if mesh.boneweights:
+                for bdef in mesh.boneweights:
+                    if bdef.weights.x > 0:
+                        bdef.joints.x = index_map[int(bdef.joints.x)]
+                    if bdef.weights.y > 0:
+                        bdef.joints.y = index_map[int(bdef.joints.y)]
+                    if bdef.weights.z > 0:
+                        bdef.joints.z = index_map[int(bdef.joints.z)]
+                    if bdef.weights.w > 0:
+                        bdef.joints.w = index_map[int(bdef.joints.w)]
+
+        for root in self.roots:
+            root.local_from_world()
+
+    def _remove_leaf_bones(self) -> list[Node]:
         remove_list: list[int] = []
         for i, node in enumerate(self.nodes):
             if node.removable():
                 remove_list.append(i)
-
-        # remove leaf nodes
         removes: list[Node] = []
         for i in reversed(remove_list):
             node = self.nodes[i]
@@ -308,56 +367,26 @@ class Loader:
                     node.parent.remove_child(node)
                 removes.append(node)
                 LOGGER.debug(f"remove leaf: {node.name}")
+        return removes
 
-        # fix
-        index_map: dict[int, int] = {}
-        for i, node in enumerate([x for x in self.nodes]):
+    def _remove_not_leaf_bones(self, removes: list[Node]) -> None:
+        for node in self.nodes:
             if node in removes:
-                self.nodes.remove(node)
-            else:
-                index_map[i] = len(index_map)
+                continue
 
-        # TODO: 非ヒューマノイドボーンからヒューマノイドボーンへの weight 付け替え
-
-        # # replace index
-        # for i, node in enumerate(self.nodes):
-        #     if i in index_map:
-        #         if node.parent:
-        #             parent_index = self.nodes.index(node.parent)
-        #             node.parent = self.nodes[index_map[parent_index]]
-
-        #         for j, child in enumerate([x for x in node.children]):
-        #             child_index = self.nodes.index(child)
-        #             node.children[j] = self.nodes[index_map[child_index]]
-
-        #         if node.skin:
-        #             for j, joint in enumerate([x for x in node.skin.joints]):
-        #                 joint_index = self.nodes.index(joint)
-        #                 node.skin.joints[j] = self.nodes[index_map[joint_index]]
-
-        for mesh in self.meshes:
-            if mesh.boneweights:
-                for bdef in mesh.boneweights:
-                    bdef.joints.x = index_map[int(bdef.joints.x)]
-                    bdef.joints.y = index_map[int(bdef.joints.y)]
-                    bdef.joints.z = index_map[int(bdef.joints.z)]
-                    bdef.joints.w = index_map[int(bdef.joints.w)]
-
-    def _remove_bone(
-        self, node_map: dict[int, Node], i: int, keep_list: set[Node]
-    ) -> None:
-        node = node_map[i]
-        self.nodes.remove(node)
-
-        while node.parent:
-            if node.parent in keep_list:
-                break
-            # skip remove parent
-            assert node.parent.removable()
-            if node.parent.parent:
-                node.parent.parent.add_child(node)
-            else:
-                node.parent = None
+            if node.removable():
+                removes.append(node)
+                if node.parent:
+                    LOGGER.debug(f"remove: {node.name}")
+                    for child in node.children:
+                        node.parent.add_child(child)
+                    node.parent.remove_child(node)
+                else:
+                    LOGGER.debug(f"remove not root: {node.name}")
+                    self.roots.remove(node)
+                    for child in [x for x in node.children]:
+                        node.remove_child(child)
+                        self.roots.append(child)
 
 
 def load_glb(

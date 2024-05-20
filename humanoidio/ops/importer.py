@@ -27,6 +27,9 @@ class Importer(bpy.types.Operator, ImportHelper):
                 # skinning に使われない joint の削除
                 # humanoid 部分の再構成
                 loader = mmd.load_pmx(path, data)
+                assert loader
+                loader.guess_human_bones()
+                loader.remove_bones()
                 conversion = gltf.Conversion(
                     gltf.Coordinate.VRM1, gltf.Coordinate.BLENDER_ROTATE
                 )
@@ -36,6 +39,9 @@ class Importer(bpy.types.Operator, ImportHelper):
                 # skinning に使われない joint の削除
                 # humanoid 部分の再構成
                 loader = mmd.load_pmd(path, data)
+                assert loader
+                loader.guess_human_bones()
+                loader.remove_bones()
                 conversion = gltf.Conversion(
                     gltf.Coordinate.VRM1, gltf.Coordinate.BLENDER_ROTATE
                 )

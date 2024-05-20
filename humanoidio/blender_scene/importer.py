@@ -311,18 +311,22 @@ class Importer:
         # set_skinning(mesh_node.mesh.boneweights)
         if mesh_node.mesh.boneweights:
             for v in mesh_node.mesh.boneweights:
-                set_bone_weight(
-                    bl_object, vert_idx[0], bone_names[int(v.joints.x)], v.weights.x
-                )
-                set_bone_weight(
-                    bl_object, vert_idx[0], bone_names[int(v.joints.y)], v.weights.y
-                )
-                set_bone_weight(
-                    bl_object, vert_idx[0], bone_names[int(v.joints.z)], v.weights.z
-                )
-                set_bone_weight(
-                    bl_object, vert_idx[0], bone_names[int(v.joints.w)], v.weights.w
-                )
+                if v.weights.x > 0:
+                    set_bone_weight(
+                        bl_object, vert_idx[0], bone_names[int(v.joints.x)], v.weights.x
+                    )
+                if v.weights.y > 0:
+                    set_bone_weight(
+                        bl_object, vert_idx[0], bone_names[int(v.joints.y)], v.weights.y
+                    )
+                if v.weights.z > 0:
+                    set_bone_weight(
+                        bl_object, vert_idx[0], bone_names[int(v.joints.z)], v.weights.z
+                    )
+                if v.weights.w > 0:
+                    set_bone_weight(
+                        bl_object, vert_idx[0], bone_names[int(v.joints.w)], v.weights.w
+                    )
                 vert_idx[0] += 1
 
         modifier = bl_object.modifiers.new(name="Armature", type="ARMATURE")

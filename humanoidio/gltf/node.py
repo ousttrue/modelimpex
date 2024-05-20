@@ -27,15 +27,19 @@ class Node:
     humanoid_bone: HumanoidBones | None = None
     constraint: RotationConstraint | None = None
     vertex_count: int = 0
+    world_position: tuple[float, float, float] = (0, 0, 0)
 
     def __hash__(self) -> int:
         return hash(self.name)
 
     def add_child(self, child: "Node") -> None:
+        if child.parent:
+            child.parent.children.remove(child)
         child.parent = self
         self.children.append(child)
 
     def remove_child(self, child: "Node") -> None:
+        assert child.parent == self
         child.parent = None
         self.children.remove(child)
 
@@ -53,3 +57,30 @@ class Node:
         if self.vertex_count > 0:
             return False
         return True
+
+    def update_world_position(
+        self, parent: tuple[float, float, float] = (0, 0, 0)
+    ) -> None:
+        self.world_position = (
+            parent[0] + self.translation[0],
+            parent[1] + self.translation[1],
+            parent[2] + self.translation[2],
+        )
+        for child in self.children:
+            child.update_world_position(self.world_position)
+
+    def local_from_world(self) -> None:
+        if self.parent:
+            self.translation = (
+                self.world_position[0] - self.parent.world_position[0],
+                self.world_position[1] - self.parent.world_position[1],
+                self.world_position[2] - self.parent.world_position[2],
+            )
+        else:
+            self.translation = (
+                self.world_position[0],
+                self.world_position[1],
+                self.world_position[2],
+            )
+        for child in self.children:
+            child.local_from_world()

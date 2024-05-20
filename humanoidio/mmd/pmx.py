@@ -5,7 +5,6 @@ import logging
 from .pymeshio.pmx import pmx_format as pmx_model
 from .pymeshio.pmx import pmx_reader as pmx_reader
 from .. import gltf
-from .. import human_bones
 
 
 LOGGER = logging.getLogger(__name__)
