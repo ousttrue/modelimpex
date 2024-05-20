@@ -13,45 +13,6 @@ from humanoidio import gltf
 LOGGER = logging.getLogger(__name__)
 
 
-PmdVS = """#version 330
-in vec3 a_pos;
-in vec3 a_normal;
-in vec2 a_uv;
-out vec2 v_uv;
-out vec3 v_color;
-uniform mediump mat4 u_view;
-uniform mediump mat4 u_projection;
-uniform mediump mat4 u_model;
-
-void main() {
-  gl_Position = u_projection * u_view * u_model * vec4(a_pos.x, a_pos.y, a_pos.z, 1);  
-  v_uv = a_uv;
-
-  // lambert
-  vec3 L = normalize(vec3(-1, - 2, 3));
-  vec3 N = normalize(a_normal);
-  float v = max(dot(N, L), 0.2);
-  v_color = vec3(v,v,v);
-}
-"""
-
-
-PmdFS = """#version 330
-in vec2 v_uv;
-in vec3 v_color;
-out vec4 FragColor;
-uniform sampler2D u_texture;
-
-void main() {
-    vec4 texel = texture(u_texture, v_uv);
-    //FragColor = vec4(v_color * texel.xyz, 1);
-    FragColor = texel;
-    FragColor.xyz += 0.0001 * v_color;
-    //FragColor = vec4(v_uv, 1, 1);
-}
-"""
-
-
 def check_gl_error():
     while True:
         err = GL.glGetError()
@@ -60,36 +21,38 @@ def check_gl_error():
         LOGGER.error(f"{err}")
 
 
+def image_bytes(image: QtGui.QImage) -> bytes:
+    match image.constBits():
+        case bytes() as image_bytes:
+            return image_bytes
+        case bytearray() | memoryview() as data:
+            return bytes(data)
+
+
 def create_texture(image: QtGui.QImage) -> glo.Texture:
     match image.format():
         case QtGui.QImage.Format.Format_RGB32:
-
             image = image.convertToFormat(QtGui.QImage.Format.Format_RGBA8888)
-
             texture = glo.Texture(
                 image.width(),
                 image.height(),
-                image.constBits(),
+                image_bytes(image),
                 pixel_type=GL.GL_RGBA,
             )
-
             return texture
 
         case QtGui.QImage.Format.Format_ARGB32_Premultiplied:  # alpha blend ?
-
             image = image.convertToFormat(QtGui.QImage.Format.Format_RGBA8888)
-
             texture = glo.Texture(
                 image.width(),
                 image.height(),
-                image.constBits(),
+                image_bytes(image),
                 pixel_type=GL.GL_RGBA,
             )
-
             return texture
 
         case _ as f:
-            raise RuntimeError()
+            raise RuntimeError(f)
 
 
 class GlScene:
@@ -134,7 +97,7 @@ class GlScene:
 
         if not self.model_drawable:
             if self.model_src:
-                shader = glo.shader.Shader.load(PmdVS, PmdFS)
+                shader = glo.shader.Shader.load_from_pkg("glglue", "assets/mesh")
                 check_gl_error()
 
                 mesh = self.model_src.meshes[0]
@@ -184,7 +147,7 @@ class GlScene:
 
                         def set_texture():
                             u_texture.set_int(0)
-                            GL.glActiveTexture(GL.GL_TEXTURE0)  # type: ignore
+                            GL.glActiveTexture(GL.GL_TEXTURE0)
                             texture.bind()
 
                         return set_texture
@@ -233,11 +196,11 @@ class GlScene:
         )
 
         # clear
-        GL.glViewport(0, 0, frame.width, frame.height)  # type: ignore
+        GL.glViewport(0, 0, frame.width, frame.height)
         if frame.height == 0:
             return
-        GL.glClearColor(*self.clear_color)  # type: ignore
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)  # type: ignore
+        GL.glClearColor(*self.clear_color)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
         # render
         if self.model_drawable:
