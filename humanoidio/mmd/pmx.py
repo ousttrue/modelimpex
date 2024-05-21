@@ -93,7 +93,7 @@ def pmx_to_gltf(
         if bdst.weights.w > 0:
             loader.nodes[int(bdst.joints.w)].vertex_count += 1
 
-    indices = (ctypes.c_uint16 * len(src.indices))()
+    indices = (ctypes.c_int * len(src.indices))()
     for i in range(0, len(src.indices), 3):
         indices[i] = src.indices[i + 2]
         indices[i + 1] = src.indices[i + 1]

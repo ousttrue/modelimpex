@@ -73,9 +73,40 @@ class Window(QtWidgets.QMainWindow):
         self.menu_docks.addAction(self.materials.toggleViewAction())  # type: ignore
 
     def file_open(self) -> None:
-        LOGGER.info("file_open: not implemented")
+        file, ok = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            filter=";;".join(
+                [
+                    "Models (*.glf *.glb *.vrm *.pmd *.pmx)",
+                    "All Files (*.*)",
+                ]
+            ),
+        )
+        if not ok:
+            return
+        self.open_file(pathlib.Path(file))
 
-    def set(self, loader: gltf.Loader):
+    def open_file(self, file: pathlib.Path) -> None:
+        if not file.exists():
+            LOGGER.warn(f"{file} not exists")
+            return
+
+        match file.suffix.lower():
+            case ".vrm":
+                model, _conversion = gltf.load(
+                    file, file.read_bytes(), gltf.Coordinate.BLENDER_ROTATE
+                )
+                if model:
+                    self.set_model(model)
+            case ".pmd" | ".pmx":
+                model = mmd.from_path(file)
+                if model:
+                    self.set_model(model)
+
+            case _:
+                LOGGER.error(f"unknown: {file}")
+
+    def set_model(self, loader: gltf.Loader):
         loader.remove_bones()
 
         self.setWindowTitle(loader.name)
@@ -122,27 +153,11 @@ class Window(QtWidgets.QMainWindow):
 
 
 def main(path: pathlib.Path):
-
     app = QtWidgets.QApplication(sys.argv)
     window = Window()
     window.resize(1024, 768)
     window.show()
-
-    match path.suffix.lower():
-        case ".vrm":
-            model, _conversion = gltf.load(
-                path, path.read_bytes(), gltf.Coordinate.BLENDER_ROTATE
-            )
-            if model:
-                window.set(model)
-        case ".pmd" | ".pmx":
-            model = mmd.from_path(path)
-            if model:
-                window.set(model)
-
-        case _:
-            LOGGER.error(f"unknown: {path}")
-
+    window.open_file(path)
     sys.exit(app.exec())
 
 

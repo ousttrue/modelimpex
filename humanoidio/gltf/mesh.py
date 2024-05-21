@@ -94,7 +94,7 @@ class Mesh:
     name: str
     vertices: ctypes.Array[Vertex]
     boneweights: ctypes.Array[Bdef4] | None
-    indices: ctypes.Array[ctypes.c_uint16]
+    indices: ctypes.Array[ctypes.c_uint16] | ctypes.Array[ctypes.c_int]
     submeshes: list[Submesh]
 
     def __hash__(self) -> int:

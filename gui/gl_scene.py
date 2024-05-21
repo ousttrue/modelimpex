@@ -52,7 +52,15 @@ def create_texture(image: QtGui.QImage) -> glo.Texture:
             return texture
 
         case _ as f:
-            raise RuntimeError(f)
+            LOGGER.warn(f)
+            # raise RuntimeError(f)
+            texture = glo.Texture(
+                image.width(),
+                image.height(),
+                image_bytes(image),
+                pixel_type=GL.GL_RGBA,
+            )
+            return texture
 
 
 class GlScene:
