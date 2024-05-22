@@ -58,7 +58,7 @@ class Importer(bpy.types.Operator, ImportHelper):
         collection = bpy.data.collections.new(name=path.name)
         context.scene.collection.children.link(collection)  # type: ignore
         bl_importer = blender_scene.Importer(collection, conversion)
-        bl_importer.load(loader)
+        bl_importer.load(loader)                
 
         return {"FINISHED"}
 

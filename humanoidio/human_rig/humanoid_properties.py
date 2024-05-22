@@ -1,7 +1,7 @@
 from typing import NamedTuple, Iterator
 import bpy
 
-PROP_NAMES = [
+PROP_NAMES: list[str] = [
     "hips",
     "spine",
     "chest",
@@ -56,7 +56,7 @@ PROP_NAMES = [
 ]
 
 # for VRM
-PROP_TO_HUMANBONE = {
+PROP_TO_HUMANBONE: dict[str, str] = {
     "left_shoulder": "leftShoulder",
     "left_upper_arm": "leftUpperArm",
     "left_lower_arm": "leftLowerArm",
@@ -104,6 +104,15 @@ PROP_TO_HUMANBONE = {
     "right_little_intermediate": "rightLittleIntermediate",
     "right_little_distal": "rightLittleDistal",
 }
+
+
+def prop_from_vrm(vrm_bone: str) -> str | None:
+    for v in PROP_NAMES:
+        if v == vrm_bone:
+            return v
+    for k, v in PROP_TO_HUMANBONE.items():
+        if v == vrm_bone:
+            return k
 
 
 class Node(NamedTuple):
@@ -313,6 +322,9 @@ class HumanoidProperties(bpy.types.PropertyGroup):
         name="right_little_intermediate"
     )  # type: ignore
     right_little_distal: bpy.props.StringProperty(name="right_little_distal")  # type: ignore
+
+    def set_bone(self, prop_name: str, bone_name: str) -> None:
+        setattr(self, prop_name, bone_name)
 
     def vrm_from_name(self, bone_name: str) -> str | None:
         for prop in PROP_NAMES:

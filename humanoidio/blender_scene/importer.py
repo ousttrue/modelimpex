@@ -5,6 +5,7 @@ import bpy
 import mathutils  # type: ignore
 from .. import gltf
 from .. import human_bones
+from ..human_rig import humanoid_properties
 from .mesh import create_mesh
 from .armature import connect_bones
 
@@ -132,6 +133,17 @@ class Importer:
         # remove empties
         for root in loader.roots:
             self._remove_empty(root)
+
+        for node in loader.nodes:
+            if node.humanoid_bone:
+                prop_name = humanoid_properties.prop_from_vrm(node.humanoid_bone)
+                if prop_name:
+                    humanoid = humanoid_properties.HumanoidProperties.from_obj(
+                        bl_humanoid_obj
+                    )
+                    humanoid.set_bone(prop_name, node.name)
+                else:
+                    print(f"{node.name} ({node.humanoid_bone}) not found")
 
     def _create_tree(
         self, node: gltf.Node, parent: gltf.Node | None = None, level: int = 0

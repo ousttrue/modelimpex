@@ -186,12 +186,16 @@ class GLTFBuilder:
         for _, bone_name in humanoid:
             if bone_name:
                 vrm_name = humanoid.vrm_from_name(bone_name)
+                found = False
                 if vrm_name:
                     for i, node in enumerate(self.nodes):
                         if node.name == bone_name:
                             vrm_bones[vrm_name] = {"node": i}
+                            found = True
                             break
+                print(vrm_name, bone_name, found)
 
+        # print(vrm_bones)
         self.extensions["VRMC_vrm"] = {"humanoid": {"humanBones": vrm_bones}}
 
     def _export_bone(
