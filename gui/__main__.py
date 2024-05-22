@@ -42,7 +42,7 @@ class Window(QtWidgets.QMainWindow):
         self.menu_file = self.menubar.addMenu("File")
         open_action = QtGui.QAction("Open", self)
         self.menu_file.addAction(open_action)  # type: ignore
-        open_action.triggered.connect(self.file_open)
+        open_action.triggered.connect(self.open_dialog)
 
         self.menu_docks = self.menubar.addMenu("Docks")
 
@@ -72,7 +72,7 @@ class Window(QtWidgets.QMainWindow):
         self.addDockWidget(QtCore.Qt.DockWidgetArea.RightDockWidgetArea, self.materials)
         self.menu_docks.addAction(self.materials.toggleViewAction())  # type: ignore
 
-    def file_open(self) -> None:
+    def open_dialog(self) -> None:
         file, ok = QtWidgets.QFileDialog.getOpenFileName(
             self,
             filter=";;".join(
@@ -88,7 +88,7 @@ class Window(QtWidgets.QMainWindow):
 
     def open_file(self, file: pathlib.Path) -> None:
         if not file.exists():
-            LOGGER.warn(f"{file} not exists")
+            LOGGER.warning(f"{file} not exists")
             return
 
         match file.suffix.lower():

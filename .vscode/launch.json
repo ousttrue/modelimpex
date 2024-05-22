@@ -108,5 +108,12 @@
                 "${env:VRM1_FILE}"
             ]
         },
+        {
+            "name": "archive",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/gui/archive.py",
+            "args": []
+        },
     ]
 }

@@ -79,7 +79,13 @@ class Importer:
         for t in loader.textures:
             match t.data:
                 case pathlib.Path():
-                    bl_image = bpy.data.images.load(str(t.data), check_existing=True)
+                    if t.data.exists():
+                        bl_image = bpy.data.images.load(
+                            str(t.data), check_existing=True
+                        )
+                    else:
+                        print(f"{t.data} not exists")
+                        bl_image = bpy.data.images.new(t.data.name, width=2, height=2)
                     textures.append(bl_image)
                 case gltf.TextureData() as data:
                     try:

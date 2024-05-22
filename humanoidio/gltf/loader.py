@@ -260,8 +260,12 @@ class Loader:
         # fix D bone
         if len(d_bones) == 8:
 
-            def remap_human_bone(bone: human_bones.HumanoidBones, d_bone: str):
+            def remap_human_bone(
+                bone: human_bones.HumanoidBones, d_bone: str, allow_skip: bool = False
+            ):
                 node = self.get_bone(bone)
+                if not node and allow_skip:
+                    return
                 assert node
                 node.humanoid_bone = None
                 d_bones[d_bone].humanoid_bone = bone
@@ -270,11 +274,11 @@ class Loader:
             remap_human_bone("leftUpperLeg", "左足D")
             remap_human_bone("leftLowerLeg", "左ひざD")
             remap_human_bone("leftFoot", "左足首D")
-            remap_human_bone("leftToes", "左足先EX")
+            remap_human_bone("leftToes", "左足先EX", True)
             remap_human_bone("rightUpperLeg", "右足D")
             remap_human_bone("rightLowerLeg", "右ひざD")
             remap_human_bone("rightFoot", "右足首D")
-            remap_human_bone("rightToes", "右足先EX")
+            remap_human_bone("rightToes", "右足先EX", True)
 
         # fix upper lower
         if len(center_upper_lower) == 3:
@@ -322,7 +326,7 @@ class Loader:
         # fix
         index_map: dict[int, int] = {}
         for i, node in enumerate([x for x in self.nodes]):
-            if node.name=='__mesh__':
+            if node.name == "__mesh__":
                 continue
             if node in removes:
                 self.nodes.remove(node)
