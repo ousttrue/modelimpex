@@ -5,6 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "pose",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pose",
+            "args": [
+                "${workspaceFolder}/humanoidio/mmd/bones.json"
+            ]
+        },
+        {
             "name": "----",
         },
         {

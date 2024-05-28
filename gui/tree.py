@@ -29,6 +29,13 @@ class GenericModel(QtCore.QAbstractItemModel, Generic[T]):
     def columnCount(self, parent: QtCore.QModelIndex | QtCore.QPersistentModelIndex) -> int:  # type: ignore
         return len(self.headers)
 
+    def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
+        match orientation, role:
+            case QtCore.Qt.Horizontal, QtCore.Qt.DisplayRole:  # type: ignore
+                return self.headers[section]
+            case _:
+                pass
+
     def data(self, index: QtCore.QModelIndex | QtCore.QPersistentModelIndex, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
         if not index.isValid():
             return
@@ -39,13 +46,6 @@ class GenericModel(QtCore.QAbstractItemModel, Generic[T]):
             case QtCore.Qt.ItemDataRole.BackgroundRole:
                 if self.fg_column_from_item:
                     return self.fg_column_from_item(item, index.column())  # type: ignore
-            case _:
-                pass
-
-    def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
-        match orientation, role:
-            case QtCore.Qt.Horizontal, QtCore.Qt.DisplayRole:  # type: ignore
-                return self.headers[section]
             case _:
                 pass
 
@@ -113,4 +113,3 @@ class GltfNodeModel(GenericModel[gltf.Node]):
     def get_fg(self, item: gltf.Node, col: int) -> QtGui.QColor:
         if item.removable():
             return QtGui.QColor(220, 220, 220)
-
