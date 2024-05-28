@@ -30,12 +30,6 @@ class Window(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__(None)
 
-        import glglue.pyside6  # type: ignore
-
-        self.scene = GlScene()
-        self.glwidget = glglue.pyside6.Widget(self, render_gl=self.scene.render)
-        self.setCentralWidget(self.glwidget)
-
         # menu
         self.menubar = self.menuBar()
         self.menubar.setNativeMenuBar(False)
@@ -51,6 +45,13 @@ class Window(QtWidgets.QMainWindow):
         self.sb = self.statusBar()
         self.sb.showMessage("ステータスバー")
 
+        # central
+        import glglue.pyside6  # type: ignore
+
+        self.scene = GlScene()
+        self.glwidget = glglue.pyside6.Widget(self, render_gl=self.scene.render)
+        self.setCentralWidget(self.glwidget)
+
         #
         # docks
         #
@@ -58,20 +59,25 @@ class Window(QtWidgets.QMainWindow):
         # bones(tree)
         self.tree = QtWidgets.QTreeView()
         self.tree.setIndentation(8)
-        self.bones = QtWidgets.QDockWidget("bones", self)
-        self.bones.setWidget(self.tree)
-        self.addDockWidget(QtCore.Qt.DockWidgetArea.LeftDockWidgetArea, self.bones)
-        self.menu_docks.addAction(self.bones.toggleViewAction())  # type: ignore
+        self._add_dock("bones", QtCore.Qt.DockWidgetArea.LeftDockWidgetArea, self.tree)
 
         # materials(list)
         self.table = QtWidgets.QTableView()
         vertical_header = self.table.verticalHeader()
         vertical_header.setSectionResizeMode(QtWidgets.QHeaderView.Fixed)  # type: ignore
         vertical_header.setDefaultSectionSize(64)
-        self.materials = QtWidgets.QDockWidget("textures", self)
-        self.materials.setWidget(self.table)
-        self.addDockWidget(QtCore.Qt.DockWidgetArea.RightDockWidgetArea, self.materials)
-        self.menu_docks.addAction(self.materials.toggleViewAction())  # type: ignore
+        self._add_dock(
+            "textures", QtCore.Qt.DockWidgetArea.RightDockWidgetArea, self.table
+        )
+
+    def _add_dock(
+        self, name: str, area: QtCore.Qt.DockWidgetArea, widget: QtWidgets.QWidget
+    ) -> QtWidgets.QDockWidget:
+        dock = QtWidgets.QDockWidget(name, self)
+        dock.setWidget(widget)
+        self.addDockWidget(area, dock)
+        self.menu_docks.addAction(dock.toggleViewAction())  # type: ignore
+        return dock
 
     def open_dialog(self) -> None:
         file, ok = QtWidgets.QFileDialog.getOpenFileName(

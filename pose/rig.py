@@ -25,8 +25,8 @@ class RigModel(QtCore.QAbstractItemModel):
             for child in [x for x in b["children"]]:
                 match child:
                     case (
-                        {"type": 7}
-                        | {"name": "ﾈｸﾀｲＩＫ"}
+                        # {"type": 7}
+                        {"name": "ﾈｸﾀｲＩＫ"}
                         | {"name": "左髪ＩＫ"}
                         | {"name": "右髪ＩＫ"}
                         | {"name": "ﾈｸﾀｲ１"}
