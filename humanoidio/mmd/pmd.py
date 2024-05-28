@@ -103,8 +103,6 @@ def pmd_to_gltf(
     for root in loader.roots:
         relative(root, root.translation)
 
-    loader.guess_human_bones()
-
     return loader
 
 

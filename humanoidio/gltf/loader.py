@@ -227,9 +227,14 @@ class Loader:
 
         return node
 
-    def get_bone(self, bone: human_bones.HumanoidBones) -> Node | None:
+    def get_human_bone(self, bone: human_bones.HumanoidBones) -> Node | None:
         for node in self.nodes:
             if node.humanoid_bone == bone:
+                return node
+
+    def get_bone(self, name: str) -> Node | None:
+        for node in self.nodes:
+            if node.name == name:
                 return node
 
     def guess_human_bones(self):
@@ -263,7 +268,7 @@ class Loader:
             def remap_human_bone(
                 bone: human_bones.HumanoidBones, d_bone: str, allow_skip: bool = False
             ):
-                node = self.get_bone(bone)
+                node = self.get_human_bone(bone)
                 if not node and allow_skip:
                     return
                 assert node
@@ -296,9 +301,9 @@ class Loader:
             hips = center_upper_lower["下半身"]
             assert hips.humanoid_bone == "hips"
 
-            left_upper_leg = self.get_bone("leftUpperLeg")
+            left_upper_leg = self.get_human_bone("leftUpperLeg")
             assert left_upper_leg
-            right_upper_leg = self.get_bone("rightUpperLeg")
+            right_upper_leg = self.get_human_bone("rightUpperLeg")
             assert right_upper_leg
             hips.world_position = (
                 (left_upper_leg.world_position[0] + right_upper_leg.world_position[0])
@@ -309,10 +314,39 @@ class Loader:
                 / 2,
             )
 
-            spine = self.get_bone("spine")
+            spine = self.get_human_bone("spine")
             assert spine
             hips.add_child(spine)
 
+        leftUpperArm = self.get_human_bone("leftUpperArm")
+        leftLowerArm = self.get_human_bone("leftLowerArm")
+        rightUpperArm = self.get_human_bone("rightUpperArm")
+        rightLowerArm = self.get_human_bone("rightLowerArm")
+        if leftUpperArm and leftLowerArm and rightUpperArm and rightLowerArm:
+            if (
+                leftUpperArm.vertex_count == 0
+                and leftLowerArm.vertex_count == 0
+                and rightUpperArm.vertex_count == 0
+                and rightLowerArm.vertex_count == 0
+            ):
+                # TODO: IK
+                leftSode = self.get_bone("左腕袖")
+                assert leftSode
+                leftUpperArm.add_child(leftSode)
+
+                leftLowerSode = self.get_bone("左ひじ袖")
+                assert leftLowerSode
+                leftLowerArm.add_child(leftLowerSode)
+
+                rightSode = self.get_bone("右腕袖")
+                assert rightSode
+                rightUpperArm.add_child(rightSode)
+
+                rightLowerSode = self.get_bone("右ひじ袖")
+                assert rightLowerSode
+                rightLowerArm.add_child(rightLowerSode)
+
+        # recalc local position
         for root in self.roots:
             root.local_from_world()
 
@@ -370,6 +404,7 @@ class Loader:
                 if node.parent:
                     node.parent.remove_child(node)
                 removes.append(node)
+                assert len(node.children) == 0
                 LOGGER.debug(f"remove leaf: {node.name}")
         return removes
 
@@ -381,12 +416,14 @@ class Loader:
             if node.removable():
                 removes.append(node)
                 if node.parent:
-                    LOGGER.debug(f"remove: {node.name}")
-                    for child in node.children:
+                    assert node.parent not in removes
+                    LOGGER.debug(f"remove not root: {node.name}")
+                    # 子ボーンの移植
+                    for child in [x for x in node.children]:
                         node.parent.add_child(child)
                     node.parent.remove_child(node)
                 else:
-                    LOGGER.debug(f"remove not root: {node.name}")
+                    LOGGER.debug(f"remove root: {node.name}")
                     self.roots.remove(node)
                     for child in [x for x in node.children]:
                         node.remove_child(child)

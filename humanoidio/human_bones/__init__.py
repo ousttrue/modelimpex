@@ -89,9 +89,9 @@ EXCLUDE_NAMES: list[Callable[[str], bool]] = [
 
 def prefix(src: str, left: HumanoidBones, right: HumanoidBones) -> HumanoidBones:
     if src.startswith("右"):
-        return left
-    elif src.startswith("左"):
         return right
+    elif src.startswith("左"):
+        return left
     else:
         raise RuntimeError()
 

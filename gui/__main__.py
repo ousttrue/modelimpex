@@ -107,12 +107,13 @@ class Window(QtWidgets.QMainWindow):
                 LOGGER.error(f"unknown: {file}")
 
     def set_model(self, loader: gltf.Loader):
+        loader.guess_human_bones()
         loader.remove_bones()
 
         self.setWindowTitle(loader.name)
         tree_model = tree.GltfNodeModel(loader.nodes)
         self.tree.setModel(tree_model)
-        self.tree.expandAll()
+        # self.tree.expandAll()
 
         pixmaps: list[QtGui.QPixmap] = []
         images: list[QtGui.QImage] = []
@@ -163,5 +164,5 @@ def main(path: pathlib.Path):
 
 if __name__ == "__main__":
     print(os.getpid())
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(format="[%(levelname)s] %(name)s: %(message)s", level=logging.DEBUG)
     main(pathlib.Path(sys.argv[1]))

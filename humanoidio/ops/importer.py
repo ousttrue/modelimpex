@@ -23,9 +23,6 @@ class Importer(bpy.types.Operator, ImportHelper):
         ext = path.suffix.lower()
         match ext:
             case ".pmx":
-                # TODO: rig のシンプル化
-                # skinning に使われない joint の削除
-                # humanoid 部分の再構成
                 loader = mmd.load_pmx(path, data)
                 assert loader
                 loader.guess_human_bones()
@@ -35,9 +32,6 @@ class Importer(bpy.types.Operator, ImportHelper):
                 )
 
             case ".pmd":
-                # TODO: rig のシンプル化
-                # skinning に使われない joint の削除
-                # humanoid 部分の再構成
                 loader = mmd.load_pmd(path, data)
                 assert loader
                 loader.guess_human_bones()

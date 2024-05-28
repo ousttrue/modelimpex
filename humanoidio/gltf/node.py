@@ -1,7 +1,11 @@
 from typing import NamedTuple, Iterator
+import logging
 import dataclasses
 from .mesh import Mesh, ExportMesh
 from ..human_bones import HumanoidBones
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class RotationConstraint(NamedTuple):
@@ -33,6 +37,7 @@ class Node:
         return hash(self.name)
 
     def add_child(self, child: "Node") -> None:
+        LOGGER.debug(f"{{{self.name}}}.add_child({{{child.name}}})")
         if child.parent:
             child.parent.children.remove(child)
         child.parent = self
