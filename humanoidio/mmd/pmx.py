@@ -2,8 +2,8 @@ import ctypes
 import io
 import pathlib
 import logging
-from .pymeshio.pmx import pmx_format as pmx_model
-from .pymeshio.pmx import pmx_reader as pmx_reader
+from .pymeshio.pmx import pmx_format
+from .pymeshio.pmx import pmx_reader
 from .. import gltf
 
 
@@ -16,7 +16,7 @@ def z_reverse(x: float, y: float, z: float) -> tuple[float, float, float]:
 
 
 def pmx_to_gltf(
-    dir: pathlib.Path, src: pmx_model.Pmx, scale: float = 1.59 / 20
+    dir: pathlib.Path, src: pmx_format.Pmx, scale: float = 1.59 / 20
 ) -> gltf.Loader:
     loader = gltf.Loader(src.name)
 
@@ -49,13 +49,13 @@ def pmx_to_gltf(
         dst.normal.y = v.normal.y
         dst.normal.z = -v.normal.z
         dst.uv.x = v.uv.x
-        dst.uv.y = v.uv.y
+        dst.uv.y = 1 - v.uv.y
         bdst = boneweights[i]
         match v.deform:
-            case pmx_model.Bdef1() as d:
+            case pmx_format.Bdef1() as d:
                 bdst.joints = gltf.Float4(d.index0, 0, 0, 0)
                 bdst.weights = gltf.Float4(1, 0, 0, 0)
-            case pmx_model.Bdef2() as d:
+            case pmx_format.Bdef2() as d:
                 if d.weight0 == 1:
                     bdst.joints = gltf.Float4(d.index0, 0, 0, 0)
                     bdst.weights = gltf.Float4(1, 0, 0, 0)
@@ -65,7 +65,7 @@ def pmx_to_gltf(
                 else:
                     bdst.joints = gltf.Float4(d.index0, d.index1, 0, 0)
                     bdst.weights = gltf.Float4(d.weight0, 1 - d.weight0, 0, 0)
-            case pmx_model.Bdef4() as d:
+            case pmx_format.Bdef4() as d:
                 bdst.weights = gltf.Float4(d.weight0, d.weight1, d.weight2, d.weight3)
                 bdst.joints = gltf.Float4(
                     d.index0 if d.weight0 > 0 else 0,
@@ -73,7 +73,7 @@ def pmx_to_gltf(
                     d.index2 if d.weight2 > 0 else 0,
                     d.index3 if d.weight3 > 0 else 0,
                 )
-            case pmx_model.Sdef() as d:
+            case pmx_format.Sdef() as d:
                 if d.weight0 == 1:
                     bdst.joints = gltf.Float4(d.index0, 0, 0, 0)
                     bdst.weights = gltf.Float4(1, 0, 0, 0)
@@ -142,8 +142,13 @@ def pmx_to_gltf(
     return loader
 
 
-def load_pmx(path: pathlib.Path, data: bytes) -> gltf.Loader | None:
-    src = pmx_reader.read(io.BytesIO(data))  # type: ignore
+def load_pmx(path: pathlib.Path, data: bytes | None = None) -> pmx_format.Pmx | None:
+    if not data:
+        data = path.read_bytes()
+    return pmx_reader.read(io.BytesIO(data))
+
+
+def gltf_from_pmx(path: pathlib.Path, data: bytes | None = None) -> gltf.Loader | None:
+    src = load_pmx(path, data)
     if src:
-        print(src)
         return pmx_to_gltf(path.parent, src)

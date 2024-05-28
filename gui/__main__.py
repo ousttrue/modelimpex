@@ -3,7 +3,6 @@ import logging
 import pathlib
 import os
 import sys
-from OpenGL import GL
 from PySide6 import QtWidgets, QtCore, QtGui
 from humanoidio import mmd, gltf
 from . import tree, table
@@ -17,11 +16,13 @@ def texture_to_pixmap(src: gltf.Texture) -> QtGui.QPixmap:
     match src.data:
         case gltf.TextureData():
             pixmap = QtGui.QPixmap()
-            pixmap.loadFromData(src.data.data)
+            pixmap.loadFromData(src.data.data)  # type:ignore
             return pixmap
         case pathlib.Path():
             pixmap = QtGui.QPixmap()
             pixmap.load(str(src.data))  # type: ignore
+            if src.data.suffix.lower() == ".tga":
+                pixmap = pixmap.transformed(QtGui.QTransform().scale(1, -1))
             return pixmap
 
 
@@ -93,15 +94,15 @@ class Window(QtWidgets.QMainWindow):
 
         match file.suffix.lower():
             case ".vrm":
-                model, _conversion = gltf.load(
+                gltf_model, _conversion = gltf.load(
                     file, file.read_bytes(), gltf.Coordinate.BLENDER_ROTATE
                 )
-                if model:
-                    self.set_model(model)
+                if gltf_model:
+                    self.set_model(gltf_model)
             case ".pmd" | ".pmx":
-                model = mmd.from_path(file)
-                if model:
-                    self.set_model(model)
+                gltf_model = mmd.load_as_gltf(file)
+                if gltf_model:
+                    self.set_model(gltf_model)
 
             case _:
                 LOGGER.error(f"unknown: {file}")
@@ -164,5 +165,7 @@ def main(path: pathlib.Path):
 
 if __name__ == "__main__":
     print(os.getpid())
-    logging.basicConfig(format="[%(levelname)s] %(name)s: %(message)s", level=logging.DEBUG)
+    logging.basicConfig(
+        format="[%(levelname)s] %(name)s: %(message)s", level=logging.DEBUG
+    )
     main(pathlib.Path(sys.argv[1]))

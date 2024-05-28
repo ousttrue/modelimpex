@@ -3,8 +3,12 @@ from PIL import Image  # type: ignore
 import io
 
 
-def load(mime: str, data: bytes) -> tuple[int, int, list[float]]:
+def load(mime: str, data: bytes, yflip: bool) -> tuple[int, int, list[float]]:
     img = Image.open(io.BytesIO(data))
+
+    if yflip:
+        img = img.flip()
+
     w, h = img.size
 
     # numpy ?

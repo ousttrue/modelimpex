@@ -1,10 +1,9 @@
 import ctypes
 import io
 import pathlib
-from .pymeshio.pmd import pmd_format as pmd_model
-from .pymeshio.pmd import pmd_reader as pmd_reader
+from .pymeshio.pmd import pmd_format
+from .pymeshio.pmd import pmd_reader
 from .. import gltf
-from .. import human_bones
 
 
 def z_reverse(x: float, y: float, z: float) -> tuple[float, float, float]:
@@ -12,7 +11,7 @@ def z_reverse(x: float, y: float, z: float) -> tuple[float, float, float]:
 
 
 def pmd_to_gltf(
-    dir: pathlib.Path, src: pmd_model.Pmd, scale: float = 1.59 / 20
+    dir: pathlib.Path, src: pmd_format.Pmd, scale: float = 1.59 / 20
 ) -> gltf.Loader:
     loader = gltf.Loader(src.name)
 
@@ -43,7 +42,7 @@ def pmd_to_gltf(
         dst.normal.y = v.normal.y
         dst.normal.z = -v.normal.z
         dst.uv.x = v.uv.x
-        dst.uv.y = v.uv.y
+        dst.uv.y = 1 - v.uv.y
         bdst = boneweights[i]
         bdst.joints.x = v.bone0 if v.bone0 != 65535 else 0
         bdst.joints.y = v.bone1 if v.bone1 != 65535 else 0
@@ -106,8 +105,13 @@ def pmd_to_gltf(
     return loader
 
 
-def load_pmd(path: pathlib.Path, data: bytes) -> gltf.Loader | None:
-    src = pmd_reader.read(io.BytesIO(data))  # type: ignore
-    if src:
-        print(src)
-        return pmd_to_gltf(path.parent, src)
+def load_pmd(path: pathlib.Path, data: bytes | None = None) -> pmd_format.Pmd | None:
+    if not data:
+        data = path.read_bytes()
+    return pmd_reader.read(io.BytesIO(data))
+
+
+def gltf_from_pmd(path: pathlib.Path, data: bytes | None = None) -> gltf.Loader | None:
+    model = load_pmd(path, data)
+    if model:
+        return pmd_to_gltf(path.parent, model)

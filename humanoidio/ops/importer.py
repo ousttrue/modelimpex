@@ -17,27 +17,18 @@ class Importer(bpy.types.Operator, ImportHelper):
     ) -> set[
         Literal["RUNNING_MODAL", "CANCELLED", "FINISHED", "PASS_THROUGH", "INTERFACE"]
     ]:
-        # read file
-        path = pathlib.Path(self.filepath).absolute()  # type: ignore
+        path = pathlib.Path(self.filepath).absolute()
         data = path.read_bytes()
         ext = path.suffix.lower()
         match ext:
-            case ".pmx":
-                loader = mmd.load_pmx(path, data)
+            case ".pmx" | ".pmd":
+                loader = mmd.load_as_gltf(path, data)
                 assert loader
                 loader.guess_human_bones()
                 loader.remove_bones()
                 conversion = gltf.Conversion(
-                    gltf.Coordinate.VRM1, gltf.Coordinate.BLENDER_ROTATE
-                )
-
-            case ".pmd":
-                loader = mmd.load_pmd(path, data)
-                assert loader
-                loader.guess_human_bones()
-                loader.remove_bones()
-                conversion = gltf.Conversion(
-                    gltf.Coordinate.VRM1, gltf.Coordinate.BLENDER_ROTATE
+                    gltf.Coordinate.VRM1,
+                    gltf.Coordinate.BLENDER_ROTATE,
                 )
 
             case _:
@@ -52,7 +43,7 @@ class Importer(bpy.types.Operator, ImportHelper):
         collection = bpy.data.collections.new(name=path.name)
         context.scene.collection.children.link(collection)  # type: ignore
         bl_importer = blender_scene.Importer(collection, conversion)
-        bl_importer.load(loader)                
+        bl_importer.load(loader)
 
         return {"FINISHED"}
 
