@@ -18,18 +18,21 @@ class GltfTextureModel(QtCore.QAbstractTableModel):
     def columnCount(self, parent: QtCore.QModelIndex | QtCore.QPersistentModelIndex) -> int:  # type: ignore
         return len(self.headers)
 
-    def data(self, index: QtCore.QModelIndex | QtCore.QPersistentModelIndex, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
-        if role == QtCore.Qt.DisplayRole:  # type: ignore
-            if index.isValid():
-                item: gltf.Texture = index.internalPointer()  # type: ignore
-                return self.column_from_item(item, index.column())
-
     def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
         match orientation, role:
             case QtCore.Qt.Horizontal, QtCore.Qt.DisplayRole:  # type: ignore
                 return self.headers[section]
             case _:
                 pass
+
+    def data(self, index: QtCore.QModelIndex | QtCore.QPersistentModelIndex, role: QtCore.Qt.ItemDataRole) -> str | None:  # type: ignore
+        if role == QtCore.Qt.DisplayRole:  # type: ignore
+            if index.isValid():
+                item: gltf.Texture = index.internalPointer()  # type: ignore
+                return self.column_from_item(item, index.column())
+
+    def rowCount(self, parent: QtCore.QModelIndex | QtCore.QPersistentModelIndex) -> int:  # type: ignore
+        return len(self.items)
 
     def index(  # type: ignore
         self,
@@ -46,9 +49,6 @@ class GltfTextureModel(QtCore.QAbstractTableModel):
         child: QtCore.QModelIndex | QtCore.QPersistentModelIndex,
     ) -> QtCore.QModelIndex:
         return QtCore.QModelIndex()
-
-    def rowCount(self, parent: QtCore.QModelIndex | QtCore.QPersistentModelIndex) -> int:  # type: ignore
-        return len(self.items)
 
 
 class ImageDelegate(QtWidgets.QStyledItemDelegate):

@@ -26,6 +26,7 @@ class Importer(bpy.types.Operator, ImportHelper):
                 assert loader
                 loader.guess_human_bones()
                 loader.remove_bones()
+                loader.rename_bones()
                 conversion = gltf.Conversion(
                     gltf.Coordinate.VRM1,
                     gltf.Coordinate.BLENDER_ROTATE,

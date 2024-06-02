@@ -118,6 +118,7 @@ def prop_from_vrm(vrm_bone: str) -> str | None:
 class Node(NamedTuple):
     prop: str
     children: list["Node"]
+    required: bool = True
 
 
 def make_hand(prefix: str) -> Node:
@@ -197,6 +198,7 @@ TREE = Node(
                             ],
                         ),
                     ],
+                    required=False,
                 )
             ],
         ),
@@ -230,6 +232,9 @@ def enum_children(prop: str) -> Iterator[str]:
     if found:
         for child in found.children:
             yield child.prop
+            if not child.required:
+                for childchild in child.children:
+                    yield childchild.prop
 
 
 def get_parent(prop: str) -> str | None:

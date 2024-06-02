@@ -392,6 +392,13 @@ class Loader:
         for root in self.roots:
             root.local_from_world()
 
+    def rename_bones(self):
+        for node in self.nodes:
+            if node.name.startswith("右"):
+                node.name = node.name[1:] + ".R"
+            elif node.name.startswith("左"):
+                node.name = node.name[1:] + ".L"
+
     def _remove_leaf_bones(self) -> list[Node]:
         remove_list: list[int] = []
         for i, node in enumerate(self.nodes):

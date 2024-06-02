@@ -1,4 +1,4 @@
-from typing import cast, Any, TypedDict
+from typing import cast, Any, TypedDict, Literal, NotRequired
 import bpy
 import json
 from . import humanoid_properties
@@ -10,9 +10,9 @@ VRM_POSE = "UNIVRM_pose"
 
 class GltfNode(TypedDict):
     name: str
-    children: list[int] | None
-    translation: tuple[float, float, float] | None
-    rotation: tuple[float, float, float, float] | None
+    children: NotRequired[list[int]]
+    translation: NotRequired[tuple[float, float, float]]
+    rotation: NotRequired[tuple[float, float, float, float]]
 
 
 class Builder:
@@ -163,13 +163,17 @@ class CopyHumanoidPose(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
-    def poll(cls, context: bpy.types.Context) -> bool:
-        if context.active_object:
+    def poll(cls, context: bpy.types.Context | None = None) -> bool:
+        if context and context.active_object:
             return isinstance(context.active_object.data, bpy.types.Armature)
         return False
 
-    def execute(self, context: bpy.types.Context):
-        o = bpy.context.active_object  # type: ignore
+    def execute(
+        self, context: bpy.types.Context | None = None
+    ) -> set[
+        Literal["RUNNING_MODAL", "CANCELLED", "FINISHED", "PASS_THROUGH", "INTERFACE"]
+    ]:
+        o = context.active_object if context else None
         builder = Builder(o, 1)
 
         builder.get_tpose()
